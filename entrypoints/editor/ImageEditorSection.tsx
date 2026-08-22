@@ -326,7 +326,7 @@ export default function ImageEditorSection({ file, onRemove }: Props) {
               {!lockAspect && (
                 <label className="checkbox-field">
                   <input type="checkbox" checked={fitAndFill} onChange={(e) => setFitAndFill(e.target.checked)} />
-                  <span>Posicionar manualmente</span>
+                  <span>Ajustar manualmente</span>
                 </label>
               )}
 
