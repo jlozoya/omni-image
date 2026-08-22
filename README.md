@@ -199,7 +199,7 @@ wxt.config.ts          WXT/manifest configuration
 
 ## Privacy
 
-The conversion pipeline operates locally. No analytics, accounts, telemetry, remote API, image upload endpoint, or external host permission is included in the source.
+The conversion pipeline operates locally. No analytics, accounts, telemetry, remote API, image upload endpoint, or external host permission is included in the source. See [PRIVACY.md](PRIVACY.md) for the full policy (English and Spanish).
 
 ## Known limitations
 
