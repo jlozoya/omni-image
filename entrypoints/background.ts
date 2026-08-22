@@ -44,7 +44,9 @@ async function captureSelectedRegion(rect: RegionRect, windowId?: number): Promi
   try {
     // Give the page one paint after removing the selection overlay.
     await new Promise((resolve) => setTimeout(resolve, 40));
-    const dataUrl = await browser.tabs.captureVisibleTab(windowId, { format: 'png' });
+    const dataUrl = windowId === undefined
+      ? await browser.tabs.captureVisibleTab({ format: 'png' })
+      : await browser.tabs.captureVisibleTab(windowId, { format: 'png' });
     const screenshot = await fetch(dataUrl).then((response) => response.blob());
     const bitmap = await createImageBitmap(screenshot);
 

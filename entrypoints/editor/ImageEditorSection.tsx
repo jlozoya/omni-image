@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Button } from 'react-aria-components';
-import { resizeFrame } from '../../lib/canvas';
+import { placeFrame, resizeFrame } from '../../lib/canvas';
 import { encodeFrame } from '../../lib/codec';
 import { cropFrame, type CropRect } from '../../lib/crop';
 import { decodeImageFile } from '../../lib/decode';
@@ -30,6 +30,10 @@ export default function ImageEditorSection({ file, onRemove }: Props) {
   const [targetWidth, setTargetWidth] = useState(0);
   const [targetHeight, setTargetHeight] = useState(0);
   const [lockAspect, setLockAspect] = useState(true);
+  const [fitAndFill, setFitAndFill] = useState(false);
+  const [manualOffsetX, setManualOffsetX] = useState(0);
+  const [manualOffsetY, setManualOffsetY] = useState(0);
+  const [manualScale, setManualScale] = useState(1);
   const [format, setFormat] = useState<OutputFormat>('png');
   const [quality, setQuality] = useState(90);
   const [background, setBackground] = useState('#ffffff');
@@ -37,7 +41,9 @@ export default function ImageEditorSection({ file, onRemove }: Props) {
   const [busy, setBusy] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const frameImageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragState = useRef<DragState | null>(null);
+  const frameDragState = useRef<{ startX: number; startY: number; offsetX: number; offsetY: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,6 +115,82 @@ export default function ImageEditorSection({ file, onRemove }: Props) {
     dragState.current = { mode, startX: event.clientX, startY: event.clientY, crop };
   }
 
+  const showManualPlacement = !lockAspect && fitAndFill;
+
+  const containScale = useMemo(() => {
+    if (!crop || crop.width <= 0 || crop.height <= 0 || !targetWidth || !targetHeight) return 1;
+    return Math.min(targetWidth / crop.width, targetHeight / crop.height);
+  }, [crop?.width, crop?.height, targetWidth, targetHeight]);
+
+  const frameScale = useMemo(() => {
+    if (!targetWidth || !targetHeight) return 1;
+    return Math.min(1, MAX_DISPLAY_WIDTH / targetWidth, MAX_DISPLAY_HEIGHT / targetHeight);
+  }, [targetWidth, targetHeight]);
+
+  const frameDisplayWidth = Math.round(targetWidth * frameScale);
+  const frameDisplayHeight = Math.round(targetHeight * frameScale);
+
+  useEffect(() => {
+    if (!showManualPlacement || !frame || !crop || !frameImageCanvasRef.current) return;
+    const cropped = cropFrame(frame, crop);
+    const canvas = frameImageCanvasRef.current;
+    canvas.width = cropped.width;
+    canvas.height = cropped.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.putImageData(new ImageData(cropped.data, cropped.width, cropped.height), 0, 0);
+  }, [showManualPlacement, frame, crop]);
+
+  function resetManualPlacement() {
+    if (!crop) return;
+    setManualScale(containScale);
+    setManualOffsetX((targetWidth - crop.width * containScale) / 2);
+    setManualOffsetY((targetHeight - crop.height * containScale) / 2);
+  }
+
+  useEffect(() => {
+    if (!fitAndFill || !crop) return;
+    resetManualPlacement();
+    // Re-center whenever manual mode is entered, or the crop/target size changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitAndFill, crop?.width, crop?.height, targetWidth, targetHeight]);
+
+  useEffect(() => {
+    if (!showManualPlacement) return;
+    function onPointerMove(event: PointerEvent) {
+      const drag = frameDragState.current;
+      if (!drag) return;
+      const dx = (event.clientX - drag.startX) / frameScale;
+      const dy = (event.clientY - drag.startY) / frameScale;
+      setManualOffsetX(drag.offsetX + dx);
+      setManualOffsetY(drag.offsetY + dy);
+    }
+    function onPointerUp() {
+      frameDragState.current = null;
+    }
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [showManualPlacement, frameScale]);
+
+  function beginFrameDrag(event: ReactPointerEvent) {
+    event.preventDefault();
+    frameDragState.current = { startX: event.clientX, startY: event.clientY, offsetX: manualOffsetX, offsetY: manualOffsetY };
+  }
+
+  function updateManualZoom(percent: number) {
+    if (!crop || !Number.isFinite(percent) || containScale <= 0) return;
+    const newScale = clamp((containScale * percent) / 100, containScale * 0.1, containScale * 5);
+    const dw = crop.width * manualScale - crop.width * newScale;
+    const dh = crop.height * manualScale - crop.height * newScale;
+    setManualOffsetX((x) => x + dw / 2);
+    setManualOffsetY((y) => y + dh / 2);
+    setManualScale(newScale);
+  }
+
   function updateTargetWidth(value: number) {
     if (!crop || !Number.isFinite(value)) return;
     const width = Math.max(1, Math.round(value));
@@ -141,7 +223,12 @@ export default function ImageEditorSection({ file, onRemove }: Props) {
     try {
       const cropped = cropFrame(frame, crop);
       const needsResize = targetWidth !== cropped.width || targetHeight !== cropped.height;
-      const finalFrame = needsResize ? await resizeFrame(cropped, targetWidth, targetHeight) : cropped;
+      let finalFrame = cropped;
+      if (needsResize) {
+        finalFrame = showManualPlacement
+          ? await placeFrame(cropped, targetWidth, targetHeight, manualOffsetX, manualOffsetY, manualScale, background, selectedInfo.alpha)
+          : await resizeFrame(cropped, targetWidth, targetHeight);
+      }
       const encoded = await encodeFrame(finalFrame, {
         format,
         quality: quality / 100,
@@ -236,6 +323,13 @@ export default function ImageEditorSection({ file, onRemove }: Props) {
                 <span>Mantener proporción</span>
               </label>
 
+              {!lockAspect && (
+                <label className="checkbox-field">
+                  <input type="checkbox" checked={fitAndFill} onChange={(e) => setFitAndFill(e.target.checked)} />
+                  <span>Posicionar manualmente</span>
+                </label>
+              )}
+
               <label className="field">
                 <span>Formato de salida</span>
                 <select value={format} onChange={(e) => setFormat(e.target.value as OutputFormat)}>
@@ -264,6 +358,46 @@ export default function ImageEditorSection({ file, onRemove }: Props) {
               {busy ? 'Procesando…' : 'Aplicar y descargar'}
             </Button>
           </div>
+        </div>
+      )}
+
+      {showManualPlacement && frame && crop && (
+        <div className="card placement-card">
+          <div className="section-heading-row">
+            <h3>Posición en el nuevo tamaño</h3>
+            <Button className="link-button" onPress={resetManualPlacement}>Centrar</Button>
+          </div>
+          <p className="muted">Arrastra la imagen para posicionarla dentro del recuadro de {targetWidth} × {targetHeight} px.</p>
+          <div
+            className="crop-stage"
+            style={{
+              width: frameDisplayWidth,
+              height: frameDisplayHeight,
+              ...(selectedInfo.alpha ? {} : { backgroundImage: 'none', backgroundColor: background }),
+            }}
+          >
+            <canvas
+              ref={frameImageCanvasRef}
+              className="frame-image"
+              style={{
+                left: manualOffsetX * frameScale,
+                top: manualOffsetY * frameScale,
+                width: crop.width * manualScale * frameScale,
+                height: crop.height * manualScale * frameScale,
+              }}
+              onPointerDown={beginFrameDrag}
+            />
+          </div>
+          <label className="field">
+            <span>Zoom: {containScale > 0 ? Math.round((manualScale / containScale) * 100) : 100}%</span>
+            <input
+              type="range"
+              min="10"
+              max="500"
+              value={containScale > 0 ? Math.round((manualScale / containScale) * 100) : 100}
+              onChange={(e) => updateManualZoom(Number(e.target.value))}
+            />
+          </label>
         </div>
       )}
 

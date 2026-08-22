@@ -46,6 +46,43 @@ export async function resizeFrame(frame: ImageFrame, width: number, height: numb
   return { width, height, data: new Uint8ClampedArray(data) };
 }
 
+/**
+ * Places `frame` inside a width x height canvas without distorting it,
+ * at a caller-chosen offset and scale (e.g. dragged/zoomed by the user).
+ * Leftover space is padded (transparent, or filled with `background`
+ * when the target format has no alpha channel).
+ */
+export async function placeFrame(
+  frame: ImageFrame,
+  width: number,
+  height: number,
+  offsetX: number,
+  offsetY: number,
+  imageScale: number,
+  background: string,
+  hasAlpha: boolean,
+): Promise<ImageFrame> {
+  const drawWidth = Math.max(1, Math.round(frame.width * imageScale));
+  const drawHeight = Math.max(1, Math.round(frame.height * imageScale));
+
+  const source = frameToCanvas(frame);
+  const target = makeCanvas(width, height);
+  const ctx = target.getContext('2d');
+  if (!ctx) throw new Error('Could not create 2D canvas context.');
+
+  if (hasAlpha) {
+    ctx.clearRect(0, 0, width, height);
+  } else {
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  ctx.drawImage(source as CanvasImageSource, 0, 0, frame.width, frame.height, Math.round(offsetX), Math.round(offsetY), drawWidth, drawHeight);
+
+  const data = ctx.getImageData(0, 0, width, height).data;
+  return { width, height, data: new Uint8ClampedArray(data) };
+}
+
 export async function bitmapToFrame(bitmap: ImageBitmap): Promise<ImageFrame> {
   const canvas = makeCanvas(bitmap.width, bitmap.height);
   const ctx = canvas.getContext('2d');

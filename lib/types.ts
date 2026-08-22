@@ -19,7 +19,7 @@ export type OutputFormat =
 export interface ImageFrame {
   width: number;
   height: number;
-  data: Uint8ClampedArray;
+  data: Uint8ClampedArray<ArrayBuffer>;
 }
 
 export interface EncodeOptions {

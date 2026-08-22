@@ -42,6 +42,7 @@ export async function decodeImageFile(file: File): Promise<ImageFrame> {
     if (ext === 'avif') {
       const { decode } = await import('@jsquash/avif');
       const image = await decode(buffer);
+      if (!image) throw new Error('AVIF decoder did not return image data.');
       return { width: image.width, height: image.height, data: new Uint8ClampedArray(image.data) };
     }
     throw new Error(`Could not decode ${file.name}. ${nativeError instanceof Error ? nativeError.message : ''}`.trim());
