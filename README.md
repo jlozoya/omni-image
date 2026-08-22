@@ -9,7 +9,7 @@ The extension converts local image files entirely in the browser and can capture
 - Local conversion; images are not uploaded to a server.
 - Multiple-file conversion from the popup.
 - Drag-and-drop file selection, in addition to the file picker.
-- Built-in editor for a single image: crop (draggable/resizable selection) and resize to an exact width/height, then convert and download.
+- Built-in editor for a single image, opened in its own browser tab for more room: crop (draggable/resizable selection) and resize to an exact width/height, then convert and download.
 - Region capture from the toolbar or keyboard shortcut.
 - Default capture shortcut: `Ctrl+Shift+Period` (`Ctrl+Shift+.`), `Command+Shift+Period` on macOS.
 - Output goes to the browser's configured downloads directory.
@@ -70,12 +70,18 @@ A future animation pipeline should explicitly decode frame timing/disposal and u
 
 ## Image editor
 
-Select exactly one image in the popup and press **Editar imagen** to open the built-in editor:
+Select one or more images in the popup and press **Editar imagen(es)**. The files are handed off to a full browser tab (`editor.html`) so there's more room to work than the popup allows. Each selected image gets its own independent section (crop, size, format, quality/background, and its own **Aplicar y descargar**) stacked on the same page.
+
+The editor tab can also be opened with no images at all (e.g. `editor.html` with no `ids` in the URL, or after clearing every pending id) — in that case it shows a file picker (supports drag-and-drop) so images can be selected directly from the tab instead of the popup.
+
+Per image:
 
 1. Drag the crop box or its corner handles over the preview to select the region to keep.
 2. Set the final output width/height (in pixels). Toggle **Mantener proporción** to keep the crop's aspect ratio while typing either dimension.
 3. Pick the output format (and quality/background, when applicable).
-4. Press **Aplicar y descargar** to crop, resize and encode the image, then save it through the Downloads API.
+4. Press **Aplicar y descargar** to crop, resize and encode that image, then save it through the Downloads API. The tab stays open so you can adjust and export again.
+
+The popup hands each `File` off to the editor tab through a short-lived IndexedDB entry (`lib/pending-image.ts`), keyed by a random id; the tab is opened once with all ids joined in its URL (`editor.html?ids=id1,id2,...`), since a `File`/blob URL can't be passed directly between an extension popup (which closes as soon as the tab opens) and a new tab. Each entry is read once and deleted immediately. Images picked directly in the editor tab (empty-state file picker) skip this hand-off entirely, since they're already in that page's context.
 
 Cropping and resizing both run on the decoded `ImageFrame` (`lib/crop.ts`, `resizeFrame` in `lib/canvas.ts`) before the existing per-format encoders run, so the editor supports every output format already listed above.
 
@@ -89,6 +95,8 @@ Cropping and resizing both run on the decoded `ImageFrame` (`lib/crop.ts`, `resi
 6. Press `Esc` to cancel selection.
 
 The current implementation captures a region of the **visible viewport**. It does not stitch a scrolling/full-page selection.
+
+**Seleccionar área ahora** is disabled in the popup (with an explanatory note) when the active tab is one where `browser.scripting.executeScript` can't inject the selection overlay: browser-internal pages (`chrome://`, `edge://`, `about:`, `devtools://`, …), other extensions' pages (`chrome-extension://`, `moz-extension://`), and extension/add-on store pages. The keyboard shortcut is unaffected by this check and still fails silently (logged to the console) on those same tabs, since `commands.onCommand` fires without popup context. See `isCapturableUrl` in `lib/utils.ts`.
 
 ## Shortcut notes
 
@@ -148,6 +156,10 @@ After a production build:
 - Chrome/Chromium: open the Extensions page, enable Developer mode, choose **Load unpacked**, and select the generated Chrome directory under `dist/`.
 - Firefox: use `about:debugging` → **This Firefox** → **Load Temporary Add-on** and select the generated manifest from the Firefox output directory.
 
+## Background script bundling
+
+The background entrypoint is declared as an ES module background (`defineBackground({ type: 'module', ... })` in `entrypoints/background.ts`), rather than the default classic/IIFE service worker. This lets the bundler code-split the background output instead of inlining every dependency it can reach (including the AVIF/JXL WASM encoders used during region capture) into one file — `background.js` is a few KB instead of tens of megabytes. Module-type MV3 background scripts are supported by current Chrome and by Firefox 101+ (this extension already targets `strict_min_version: "128.0"`).
+
 ## Permissions
 
 ```text
@@ -169,12 +181,14 @@ AVIF, JPEG XL, QOI and HEIC/HEIF decoding use WebAssembly-based packages. Manife
 entrypoints/
   background.ts       capture command, injection, screenshot and download
   popup/              converter + quick capture controls
+  editor/             crop/resize editor (its own tab), one section per image
   options/            capture and keyboard settings
 lib/
   codec.ts            output dispatch
   decode.ts           input dispatch
   canvas.ts           bitmap/canvas helpers, resize
   crop.ts             crop helper
+  pending-image.ts    hands a File off from the popup to the editor tab
   encoders/           format encoders
   decoders/           dedicated format decoders
   settings.ts         browser.storage preferences

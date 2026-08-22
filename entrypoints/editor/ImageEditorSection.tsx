@@ -11,8 +11,8 @@ import { DEFAULT_SETTINGS } from '../../lib/settings';
 import type { ImageFrame, OutputFormat } from '../../lib/types';
 import { basenameWithoutExtension, clamp, safeFilenamePart } from '../../lib/utils';
 
-const MAX_DISPLAY_WIDTH = 320;
-const MAX_DISPLAY_HEIGHT = 230;
+const MAX_DISPLAY_WIDTH = 560;
+const MAX_DISPLAY_HEIGHT = 400;
 const MIN_CROP_SIZE = 8;
 
 type DragMode = 'move' | 'nw' | 'ne' | 'sw' | 'se';
@@ -20,10 +20,10 @@ type DragState = { mode: DragMode; startX: number; startY: number; crop: CropRec
 
 interface Props {
   file: File;
-  onClose: () => void;
+  onRemove: () => void;
 }
 
-export default function ImageEditor({ file, onClose }: Props) {
+export default function ImageEditorSection({ file, onRemove }: Props) {
   const [frame, setFrame] = useState<ImageFrame | null>(null);
   const [error, setError] = useState('');
   const [crop, setCrop] = useState<CropRect | null>(null);
@@ -41,9 +41,6 @@ export default function ImageEditor({ file, onClose }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    setFrame(null);
-    setError('');
-    setStatus('');
     void decodeImageFile(file)
       .then((decoded) => {
         if (cancelled) return;
@@ -171,53 +168,60 @@ export default function ImageEditor({ file, onClose }: Props) {
     : null;
 
   return (
-    <section className="panel editor-panel">
-      <div className="section-heading">
-        <div>
-          <h2>Editar imagen</h2>
-          <p>{file.name}</p>
-        </div>
-        <Button className="icon-button" onPress={onClose} aria-label="Cerrar editor">
+    <section className="editor-section">
+      <div className="section-header">
+        <h2 className="section-title">{file.name}</h2>
+        <Button className="section-remove" onPress={onRemove} aria-label={`Quitar ${file.name}`}>
           ✕
         </Button>
       </div>
 
-      {error && <p className="note error">{error}</p>}
-      {!frame && !error && <p className="note">Cargando imagen…</p>}
+      {error && (
+        <div className="card">
+          <p className="note error">{error}</p>
+        </div>
+      )}
+
+      {!frame && !error && (
+        <div className="card">
+          <p className="note">Cargando imagen…</p>
+        </div>
+      )}
 
       {frame && crop && cropDisplay && (
-        <>
-          <div className="crop-stage" style={{ width: displayWidth, height: displayHeight }}>
-            <canvas ref={canvasRef} style={{ width: displayWidth, height: displayHeight }} />
-            <div className="crop-shade" style={{ left: 0, top: 0, right: 0, height: cropDisplay.top }} />
-            <div className="crop-shade" style={{ left: 0, top: cropDisplay.top + cropDisplay.height, right: 0, bottom: 0 }} />
-            <div className="crop-shade" style={{ left: 0, top: cropDisplay.top, width: cropDisplay.left, height: cropDisplay.height }} />
-            <div className="crop-shade" style={{ left: cropDisplay.left + cropDisplay.width, top: cropDisplay.top, right: 0, height: cropDisplay.height }} />
-            <div
-              className="crop-box"
-              style={{ left: cropDisplay.left, top: cropDisplay.top, width: cropDisplay.width, height: cropDisplay.height }}
-              onPointerDown={(e) => beginDrag('move', e)}
-            >
-              {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => (
-                <span
-                  key={corner}
-                  className={`crop-handle crop-handle-${corner}`}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    beginDrag(corner, e);
-                  }}
-                />
-              ))}
+        <div className="editor-layout">
+          <div className="card stage-card">
+            <div className="crop-stage" style={{ width: displayWidth, height: displayHeight }}>
+              <canvas ref={canvasRef} style={{ width: displayWidth, height: displayHeight }} />
+              <div className="crop-shade" style={{ left: 0, top: 0, right: 0, height: cropDisplay.top }} />
+              <div className="crop-shade" style={{ left: 0, top: cropDisplay.top + cropDisplay.height, right: 0, bottom: 0 }} />
+              <div className="crop-shade" style={{ left: 0, top: cropDisplay.top, width: cropDisplay.left, height: cropDisplay.height }} />
+              <div className="crop-shade" style={{ left: cropDisplay.left + cropDisplay.width, top: cropDisplay.top, right: 0, height: cropDisplay.height }} />
+              <div
+                className="crop-box"
+                style={{ left: cropDisplay.left, top: cropDisplay.top, width: cropDisplay.width, height: cropDisplay.height }}
+                onPointerDown={(e) => beginDrag('move', e)}
+              >
+                {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => (
+                  <span
+                    key={corner}
+                    className={`crop-handle crop-handle-${corner}`}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      beginDrag(corner, e);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="crop-info">
+              <span>Recorte: {Math.round(crop.width)} × {Math.round(crop.height)} px</span>
+              <Button className="link-button" onPress={resetCrop}>Restablecer recorte</Button>
             </div>
           </div>
 
-          <div className="crop-info">
-            <span>Recorte: {Math.round(crop.width)} × {Math.round(crop.height)} px</span>
-            <Button className="link-button" onPress={resetCrop}>Restablecer recorte</Button>
-          </div>
-
-          <div className="field-grid">
-            <div className="field-row">
+          <div className="card controls-card">
+            <div className="form-grid">
               <label className="field">
                 <span>Ancho final (px)</span>
                 <input type="number" min={1} value={targetWidth} onChange={(e) => updateTargetWidth(Number(e.target.value))} />
@@ -226,44 +230,44 @@ export default function ImageEditor({ file, onClose }: Props) {
                 <span>Alto final (px)</span>
                 <input type="number" min={1} value={targetHeight} onChange={(e) => updateTargetHeight(Number(e.target.value))} />
               </label>
+
+              <label className="checkbox-field">
+                <input type="checkbox" checked={lockAspect} onChange={(e) => setLockAspect(e.target.checked)} />
+                <span>Mantener proporción</span>
+              </label>
+
+              <label className="field">
+                <span>Formato de salida</span>
+                <select value={format} onChange={(e) => setFormat(e.target.value as OutputFormat)}>
+                  {OUTPUT_FORMATS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                </select>
+              </label>
+
+              {selectedInfo.qualityControl && (
+                <label className="field">
+                  <span>Calidad: {quality}%</span>
+                  <input type="range" min="1" max="100" value={quality} onChange={(e) => setQuality(Number(e.target.value))} />
+                </label>
+              )}
+
+              {!selectedInfo.alpha && (
+                <label className="field">
+                  <span>Fondo para transparencia</span>
+                  <input type="color" value={background} onChange={(e) => setBackground(e.target.value)} />
+                </label>
+              )}
             </div>
 
-            <label className="checkbox-field">
-              <input type="checkbox" checked={lockAspect} onChange={(e) => setLockAspect(e.target.checked)} />
-              <span>Mantener proporción</span>
-            </label>
+            {selectedInfo.notes && <p className="muted">{selectedInfo.notes}</p>}
 
-            <label className="field">
-              <span>Formato de salida</span>
-              <select value={format} onChange={(e) => setFormat(e.target.value as OutputFormat)}>
-                {OUTPUT_FORMATS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-              </select>
-            </label>
-
-            {selectedInfo.qualityControl && (
-              <label className="field">
-                <span>Calidad: {quality}%</span>
-                <input type="range" min="1" max="100" value={quality} onChange={(e) => setQuality(Number(e.target.value))} />
-              </label>
-            )}
-
-            {!selectedInfo.alpha && (
-              <label className="field">
-                <span>Fondo para transparencia</span>
-                <input type="color" value={background} onChange={(e) => setBackground(e.target.value)} />
-              </label>
-            )}
+            <Button className="primary" isDisabled={busy} onPress={applyAndDownload}>
+              {busy ? 'Procesando…' : 'Aplicar y descargar'}
+            </Button>
           </div>
-
-          {selectedInfo.notes && <p className="note">{selectedInfo.notes}</p>}
-
-          <Button className="primary-button" isDisabled={busy} onPress={applyAndDownload}>
-            {busy ? 'Procesando…' : 'Aplicar y descargar'}
-          </Button>
-        </>
+        </div>
       )}
 
-      {status && <div className="status" role="status">{status}</div>}
+      {status && <div className="toast" role="status">{status}</div>}
     </section>
   );
 }

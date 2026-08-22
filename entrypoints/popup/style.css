@@ -25,7 +25,12 @@ h2 { font-size: 15px; }
 .drop-zone-active .drop-button { background: #eef0ff; border-color: #1c1d20; border-style: solid; }
 .drop-button span { font-size: 11px; color: #777c84; }
 .drop-button .drop-hint { font-size: 10px; color: #9a9ea5; }
-.file-list { margin-top: 9px; max-height: 74px; overflow: auto; padding: 8px 10px; border-radius: 8px; background: #f6f7f9; font-size: 11px; color: #555a62; display: grid; gap: 3px; }
+.file-list { margin-top: 9px; max-height: 128px; overflow: auto; padding: 6px; border-radius: 8px; background: #f6f7f9; font-size: 11px; color: #555a62; display: grid; gap: 2px; }
+.file-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; }
+.file-row:hover { background: #eceef1; }
+.file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-remove { flex-shrink: 0; border: 0; background: transparent; border-radius: 6px; width: 20px; height: 20px; line-height: 1; color: #8a8f97; cursor: pointer; }
+.file-remove:hover { background: #dfe2e7; color: #b3261e; }
 .field-grid { display: grid; gap: 10px; margin-top: 12px; }
 .field { display: grid; gap: 5px; font-size: 12px; font-weight: 600; color: #3f4349; }
 .field select, .field input[type="text"] { width: 100%; border: 1px solid #cfd2d7; background: white; border-radius: 8px; padding: 8px 9px; }
@@ -43,42 +48,3 @@ h2 { font-size: 15px; }
 .button-row .primary-button, .button-row .secondary-button { margin-top: 0; flex: 1; }
 .status { background: #1c1d20; color: white; border-radius: 9px; padding: 9px 11px; font-size: 11px; line-height: 1.35; }
 kbd { display: inline-block; border: 1px solid #c8cbd1; border-bottom-width: 2px; background: #f7f7f8; border-radius: 5px; padding: 1px 5px; color: #393c42; }
-
-.editor-panel { display: grid; gap: 12px; }
-.crop-stage {
-  position: relative;
-  margin: 0 auto;
-  overflow: hidden;
-  border-radius: 8px;
-  touch-action: none;
-  background-image: conic-gradient(#e5e6ea 25%, transparent 0 50%, #e5e6ea 0 75%, transparent 0);
-  background-size: 16px 16px;
-}
-.crop-stage canvas { position: absolute; top: 0; left: 0; display: block; }
-.crop-shade { position: absolute; background: rgba(0, 0, 0, .45); pointer-events: none; }
-.crop-box {
-  position: absolute;
-  border: 2px dashed #fff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, .6);
-  box-sizing: border-box;
-  cursor: move;
-  touch-action: none;
-}
-.crop-handle {
-  position: absolute;
-  width: 11px;
-  height: 11px;
-  background: #fff;
-  border: 1px solid #1c1d20;
-  border-radius: 2px;
-  touch-action: none;
-}
-.crop-handle-nw { top: -6px; left: -6px; cursor: nwse-resize; }
-.crop-handle-ne { top: -6px; right: -6px; cursor: nesw-resize; }
-.crop-handle-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
-.crop-handle-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
-.crop-info { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #6c7078; }
-.link-button { border: 0; background: transparent; padding: 0; color: #1c1d20; font-weight: 700; font-size: 11px; text-decoration: underline; cursor: pointer; }
-.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.checkbox-field { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: #3f4349; }
-.field input[type="number"] { width: 100%; border: 1px solid #cfd2d7; background: white; border-radius: 8px; padding: 8px 9px; }

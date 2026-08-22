@@ -10,6 +10,10 @@ export default defineConfig({
     optimizeDeps: {
       exclude: wasmPackages,
     },
+    build: {
+      // The heic-to decoder ships as a single ~3 MB chunk; expected and harmless.
+      chunkSizeWarningLimit: 3500,
+    },
   }),
   manifest: ({ browser }) => ({
     name: 'Omni Image Converter & Capture',

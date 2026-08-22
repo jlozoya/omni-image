@@ -30,3 +30,32 @@ export function concatBytes(parts: Uint8Array[]): Uint8Array {
 export function ascii(text: string): Uint8Array {
   return new TextEncoder().encode(text);
 }
+
+const RESTRICTED_URL_PREFIXES = [
+  'chrome://',
+  'chrome-extension://',
+  'chrome-error://',
+  'chrome-search://',
+  'chrome-untrusted://',
+  'devtools://',
+  'edge://',
+  'about:',
+  'moz-extension://',
+  'view-source:',
+];
+
+const RESTRICTED_URL_ORIGINS = [
+  'https://chrome.google.com/webstore',
+  'https://chromewebstore.google.com',
+  'https://microsoftedge.microsoft.com/addons',
+  'https://addons.mozilla.org',
+];
+
+/** Whether `browser.scripting.executeScript` can inject into this tab's URL. */
+export function isCapturableUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  return (
+    !RESTRICTED_URL_PREFIXES.some((prefix) => url.startsWith(prefix)) &&
+    !RESTRICTED_URL_ORIGINS.some((origin) => url.startsWith(origin))
+  );
+}

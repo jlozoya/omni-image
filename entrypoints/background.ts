@@ -6,21 +6,24 @@ import type { ExtensionMessage } from '../lib/messages';
 import type { ImageFrame, RegionRect } from '../lib/types';
 import { safeFilenamePart, timestampForFilename } from '../lib/utils';
 
-export default defineBackground(() => {
-  browser.commands.onCommand.addListener(async (command) => {
-    if (command !== 'capture-region') return;
-    await startRegionSelection();
-  });
+export default defineBackground({
+  type: 'module',
+  main() {
+    browser.commands.onCommand.addListener(async (command) => {
+      if (command !== 'capture-region') return;
+      await startRegionSelection();
+    });
 
-  browser.runtime.onMessage.addListener((message: ExtensionMessage, sender) => {
-    if (message?.type === 'START_CAPTURE') {
-      void startRegionSelection();
-      return;
-    }
-    if (message?.type === 'REGION_SELECTED') {
-      void captureSelectedRegion(message.rect, sender.tab?.windowId);
-    }
-  });
+    browser.runtime.onMessage.addListener((message: ExtensionMessage, sender) => {
+      if (message?.type === 'START_CAPTURE') {
+        void startRegionSelection();
+        return;
+      }
+      if (message?.type === 'REGION_SELECTED') {
+        void captureSelectedRegion(message.rect, sender.tab?.windowId);
+      }
+    });
+  },
 });
 
 async function startRegionSelection(): Promise<void> {
@@ -122,6 +125,31 @@ function injectedRegionSelector(): void {
   });
   overlay.appendChild(selection);
 
+  const dimensionLabel = document.createElement('div');
+  Object.assign(dimensionLabel.style, {
+    position: 'fixed',
+    display: 'none',
+    padding: '3px 7px',
+    borderRadius: '5px',
+    background: 'rgba(20, 20, 20, 0.88)',
+    color: '#fff',
+    font: '11px/1.2 system-ui, sans-serif',
+    fontWeight: '600',
+    pointerEvents: 'none',
+    whiteSpace: 'nowrap',
+  });
+  overlay.appendChild(dimensionLabel);
+
+  const updateDimensionLabel = (x: number, y: number, width: number, height: number) => {
+    dimensionLabel.textContent = `${Math.round(width)} × ${Math.round(height)} px`;
+    dimensionLabel.style.display = 'block';
+    const labelRect = dimensionLabel.getBoundingClientRect();
+    const left = Math.max(4, Math.min(x + width - labelRect.width - 6, window.innerWidth - labelRect.width - 4));
+    const top = Math.max(4, Math.min(y + height - labelRect.height - 6, window.innerHeight - labelRect.height - 4));
+    dimensionLabel.style.left = `${left}px`;
+    dimensionLabel.style.top = `${top}px`;
+  };
+
   let startX = 0;
   let startY = 0;
   let dragging = false;
@@ -150,6 +178,7 @@ function injectedRegionSelector(): void {
     selection.style.top = `${startY}px`;
     selection.style.width = '0px';
     selection.style.height = '0px';
+    updateDimensionLabel(startX, startY, 0, 0);
   });
 
   overlay.addEventListener('mousemove', (event) => {
@@ -162,6 +191,7 @@ function injectedRegionSelector(): void {
     selection.style.top = `${y}px`;
     selection.style.width = `${width}px`;
     selection.style.height = `${height}px`;
+    updateDimensionLabel(x, y, width, height);
   });
 
   overlay.addEventListener('mouseup', (event) => {

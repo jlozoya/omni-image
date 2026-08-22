@@ -7,8 +7,8 @@ import { encodeFrame } from '../../lib/codec';
 import { ACCEPTED_INPUT_EXTENSIONS, OUTPUT_FORMATS, formatInfo } from '../../lib/formats';
 import { DEFAULT_SETTINGS, getCaptureSettings, saveCaptureSettings } from '../../lib/settings';
 import type { CaptureSettings, OutputFormat } from '../../lib/types';
-import { basenameWithoutExtension, safeFilenamePart } from '../../lib/utils';
-import ImageEditor from './ImageEditor';
+import { savePendingImage } from '../../lib/pending-image';
+import { basenameWithoutExtension, isCapturableUrl, safeFilenamePart } from '../../lib/utils';
 
 export default function App() {
   const [files, setFiles] = useState<File[]>([]);
@@ -19,10 +19,13 @@ export default function App() {
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const [isDropActive, setIsDropActive] = useState(false);
-  const [editingFile, setEditingFile] = useState<File | null>(null);
+  const [canCapture, setCanCapture] = useState(true);
 
   useEffect(() => {
     void getCaptureSettings().then(setCaptureSettings);
+    void browser.tabs
+      .query({ active: true, currentWindow: true })
+      .then(([tab]) => setCanCapture(isCapturableUrl(tab?.url)));
   }, []);
 
   const selectedInfo = useMemo(() => formatInfo(format), [format]);
@@ -92,12 +95,18 @@ export default function App() {
     acceptDroppedFiles(event.dataTransfer.files);
   }
 
-  if (editingFile) {
-    return (
-      <main className="app-shell">
-        <ImageEditor file={editingFile} onClose={() => setEditingFile(null)} />
-      </main>
-    );
+  async function openEditor() {
+    let url = browser.runtime.getURL('/editor.html');
+    if (files.length) {
+      const ids = await Promise.all(files.map((file) => savePendingImage(file)));
+      url += `?ids=${ids.map(encodeURIComponent).join(',')}`;
+    }
+    await browser.tabs.create({ url });
+    window.close();
+  }
+
+  function removeFile(index: number) {
+    setFiles((current) => current.filter((_, i) => i !== index));
   }
 
   return (
@@ -141,8 +150,18 @@ export default function App() {
 
         {files.length > 0 && (
           <div className="file-list" aria-label="Archivos seleccionados">
-            {files.slice(0, 4).map((file) => <div key={`${file.name}-${file.size}`}>{file.name}</div>)}
-            {files.length > 4 && <div>+ {files.length - 4} más</div>}
+            {files.map((file, index) => (
+              <div className="file-row" key={`${file.name}-${file.size}-${index}`}>
+                <span className="file-name">{file.name}</span>
+                <Button
+                  className="file-remove"
+                  onPress={() => removeFile(index)}
+                  aria-label={`Quitar ${file.name}`}
+                >
+                  ✕
+                </Button>
+              </div>
+            ))}
           </div>
         )}
 
@@ -172,15 +191,8 @@ export default function App() {
         {selectedInfo.notes && <p className="note">{selectedInfo.notes}</p>}
 
         <div className="button-row">
-          <Button
-            className="secondary-button"
-            isDisabled={files.length !== 1}
-            onPress={() => {
-              const single = files[0];
-              if (single) setEditingFile(single);
-            }}
-          >
-            Editar imagen
+          <Button className="secondary-button" onPress={() => void openEditor()}>
+            {files.length === 0 ? 'Abrir editor' : files.length > 1 ? 'Editar imágenes' : 'Editar imagen'}
           </Button>
           <Button className="primary-button" isDisabled={!files.length || busy} onPress={convertSelected}>
             {busy ? 'Convirtiendo…' : 'Convertir y descargar'}
@@ -203,7 +215,8 @@ export default function App() {
           </select>
         </label>
 
-        <Button className="secondary-button" onPress={startCapture}>Seleccionar área ahora</Button>
+        <Button className="secondary-button" isDisabled={!canCapture} onPress={startCapture}>Seleccionar área ahora</Button>
+        {!canCapture && <p className="note">No se puede capturar esta pestaña (páginas internas del navegador o de otras extensiones).</p>}
       </section>
 
       {status && <div className="status" role="status">{status}</div>}
