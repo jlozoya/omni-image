@@ -10,7 +10,7 @@ The extension converts local image files entirely in the browser and can capture
 - Multiple-file conversion from the popup.
 - Drag-and-drop file selection, in addition to the file picker.
 - Full-tab editor with per-image settings, crop, rotation, flips, manual placement, annotations and undo/redo.
-- Saved export profiles, batch downloads, ZIP archives and per-file error/retry handling.
+- Batch downloads, ZIP archives and per-file error/retry handling.
 - Paste images with Ctrl/Cmd+V and copy edited results as PNG.
 - Persistent local drafts, including originals and edits, with reopening and explicit deletion.
 - Offline Spanish/English OCR with bundled models.
@@ -85,7 +85,7 @@ Per image:
 2. Set output dimensions. A zero dimension is automatic; with **Mantener proporción**, entering one dimension calculates the other. Disable the lock and enable manual placement to position/scale the source inside an output canvas, even when its dimensions match the original.
 3. Add arrows, rectangles, opaque black redaction blocks, text or numbered markers on the result. Annotation coordinates are relative to the output canvas. **Deshacer/Rehacer** remembers up to 40 local edits while that image remains selected; Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z work outside text fields.
 4. Choose format/quality/background. Copy uses PNG at the edited dimensions.
-5. Download individually, or save a named profile and apply it to the batch from the toolbar. A proportional width profile adapts each image's height. Batch downloads continue past failed images and provide a retry button. ZIP names have numeric prefixes to avoid collisions. Stopping a batch finishes the current image and keeps completed results.
+5. Download individually or as a batch. Batch downloads continue past failed images and provide a retry button. ZIP names have numeric prefixes to avoid collisions. Stopping a batch finishes the current image and keeps completed results.
 
 The popup hands files off through IndexedDB (`lib/pending-image.ts`). Reads are idempotent, including React StrictMode's double mount. Transfers are deleted only after the editor commits its durable draft; abandoned transfers older than 24 hours are cleaned on the next transfer. The editor replaces transfer IDs in its URL with a session ID. Drafts autosave locally after a short debounce and survive reloads. **Recuperar otro borrador** opens a previous draft, and **Vaciar borrador** deletes the current one. Drafts retain original pixels even after adding redactions; exported images contain flattened annotations.
 
@@ -188,7 +188,7 @@ AVIF, JPEG XL, QOI and HEIC/HEIF decoding use WebAssembly-based packages. Manife
 entrypoints/
   background.ts       capture command, injection, screenshot and download
   popup/              converter + quick capture controls
-  editor/             image workspace, annotations, profiles, OCR and batch export
+  editor/             image workspace, annotations, OCR and batch export
   options/            capture and keyboard settings
 lib/
   codec.ts            output dispatch
@@ -197,7 +197,7 @@ lib/
   crop.ts             crop helper
   pending-image.ts    hands a File off from the popup to the editor tab
   editor-store.ts     durable image/edit drafts and their summaries
-  editor-model.ts     shared edit state and export profiles
+  editor-model.ts     shared edit state
   editor-render.ts    transforms, annotations and target-size export
   full-page-capture.ts scrolling capture and page cleanup
   clipboard.ts       PNG clipboard output

@@ -4,8 +4,8 @@ import { ACCEPTED_INPUT_EXTENSIONS } from '../../lib/formats';
 import { takePendingImage, removePendingImages } from '../../lib/pending-image';
 import { readDraft, writeDraft, listDrafts } from '../../lib/editor-store';
 import type { DraftSummary } from '../../lib/editor-store';
-import { defaultEdit, exportProfile, profileForImage } from '../../lib/editor-model';
-import type { EditorEntry, ExportProfile, SavedProfile } from '../../lib/editor-model';
+import { defaultEdit } from '../../lib/editor-model';
+import type { EditorEntry } from '../../lib/editor-model';
 import { decodeImageFile } from '../../lib/decode';
 import { encodeEdit } from '../../lib/editor-render';
 import { downloadEncoded } from '../../lib/download';
@@ -36,9 +36,6 @@ export default function App() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
-  const [profiles, setProfiles] = useState<SavedProfile[]>([]);
-  const [profileId, setProfileId] = useState('');
-  const [profileName, setProfileName] = useState('');
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
@@ -52,7 +49,8 @@ export default function App() {
     initialLoad ??= loadEntries();
     initialLoad.then((items) => { if (live) { setEntries(items); setSelected(items[0]?.id ?? ''); setLoading(false); } })
       .catch((error) => { if (live) { setStatus(String(error)); setLoading(false); setLoadFailed(true); } });
-    browser.storage.local.get('exportProfiles').then((data) => { if (live) setProfiles((data.exportProfiles as SavedProfile[] | undefined) ?? []); }).catch((error) => { if (live) setStatus(String(error)); });
+    // Drops profiles saved by earlier versions; the feature no longer exists.
+    void browser.storage.local.remove('exportProfiles').catch(() => {});
     void listDrafts().then((items) => { if (live) setDrafts(items); }).catch((error) => { if (live) setStatus(String(error)); });
     return () => { live = false; };
   }, []);
@@ -98,24 +96,6 @@ export default function App() {
     }
     window.addEventListener('paste', paste); return () => window.removeEventListener('paste', paste);
   }, [busy, loading]);
-  async function saveProfile(name: string, options: ExportProfile) {
-    const existing = profiles.find((profile) => profile.name.toLowerCase() === name.toLowerCase());
-    const next = [...profiles.filter((profile) => profile.id !== existing?.id), { id: existing?.id ?? crypto.randomUUID(), name, options }];
-    await browser.storage.local.set({ exportProfiles: next }); setProfiles(next);
-  }
-  async function saveActiveProfile() {
-    if (!active || !profileName.trim() || busy) return;
-    try {
-      await saveProfile(profileName.trim(), exportProfile(active.edit));
-      setStatus('Perfil guardado.');
-    } catch (error) {
-      setStatus(String(error));
-    }
-  }
-  function applyAll(options: ExportProfile) {
-    setEntries((items) => items.map((item) => ({ ...item, edit: profileForImage(item.edit, options) })));
-    setStatus('Ajustes de exportación aplicados a todas las imágenes.');
-  }
   async function batch(zip: boolean, retry = false) {
     if (busy) return;
     setBusy(true); cancelled.current = false;
@@ -185,14 +165,6 @@ export default function App() {
           <button className="image-tab-remove" aria-label={`Quitar ${entry.file.name}`} title="Quitar imagen" disabled={busy} onClick={() => setEntries((items) => items.filter((item) => item.id !== entry.id))}>×</button>
         </div>)}</div>
         <div className="workspace-commandbar">
-          <div className="profile-tools">
-            <span className="commandbar-label">Perfiles</span>
-            <label className="field">Abrir perfil<select value={profileId} disabled={busy} onChange={(event) => { const nextId = event.target.value; setProfileId(nextId); const profile = profiles.find((item) => item.id === nextId); if (profile) setProfileName(profile.name); }}><option value="">Elegir perfil</option>{profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name}</option>)}</select></label>
-            <button disabled={!profileId || busy} onClick={() => { const profile = profiles.find((item) => item.id === profileId); if (profile) applyAll(profile.options); }}>Aplicar al lote</button>
-            <label className="field profile-name-field">Guardar como<input value={profileName} onChange={(event) => setProfileName(event.target.value)} placeholder="Nombre del perfil" maxLength={80} /></label>
-            <button disabled={!profileName.trim() || busy} onClick={() => void saveActiveProfile()}>Guardar</button>
-            <button disabled={!profileId || busy} onClick={() => { const next = profiles.filter((profile) => profile.id !== profileId); void browser.storage.local.set({ exportProfiles: next }).then(() => { setProfiles(next); setProfileId(''); }).catch((error) => setStatus(String(error))); }}>Eliminar</button>
-          </div>
           <div className="batch-actions">
             <span className="commandbar-label">Lote completo</span>
             <button className="primary" disabled={busy} onClick={() => void batch(false)}>Descargar todo ({entries.length})</button>

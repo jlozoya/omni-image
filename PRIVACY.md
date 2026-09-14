@@ -6,7 +6,7 @@ Omni Image processes images, screenshots and OCR on your device. It does not upl
 
 ## Local data
 
-- `browser.storage.local` stores capture preferences, export profiles and the last capture status.
+- `browser.storage.local` stores capture preferences and the last capture status.
 - IndexedDB stores editor drafts: original image files, edits and annotations. Drafts survive reloads and can be reopened through **Recuperar otro borrador**. **Vaciar borrador** deletes the current draft. To delete another draft, open it and empty it. Uninstalling the extension removes its browser storage.
 - Popup-to-editor transfers use a separate IndexedDB store. Transfers are removed after the editor saves a draft. Abandoned transfers older than 24 hours are cleaned when another image is transferred.
 - OCR results remain in the current editor component's memory and are not included in drafts. Copying an image or text explicitly writes it to the system clipboard. Downloads remain in the folder managed by your browser and are not deleted when a draft is cleared.
@@ -20,7 +20,7 @@ Drafts include original images, even when the exported result contains opaque re
 | `activeTab` | Temporary access to the active webpage after you invoke the extension. |
 | `scripting` | Region selection, or scrolling and temporarily hiding fixed/sticky elements during a requested full-page capture. The page's scroll position and styles are restored afterward. |
 | `downloads` | Save converted images, captures and ZIP archives after your action. |
-| `storage` | Local preferences and profiles. |
+| `storage` | Local preferences. |
 | `clipboardWrite` | Copy edited images or OCR text when you press Copy. |
 
 There is no `<all_urls>` host permission or clipboard-read permission. Pasting images uses the browser's paste event after you press Ctrl/Cmd+V. Full-page capture operates on the current document, including what it renders, and requires that tab to remain active.
@@ -43,7 +43,7 @@ Omni Image procesa imágenes, capturas y OCR en tu dispositivo. No sube imágene
 
 ## Datos locales
 
-- `browser.storage.local` guarda preferencias de captura, perfiles de exportación y el último estado de captura.
+- `browser.storage.local` guarda preferencias de captura y el último estado de captura.
 - IndexedDB guarda borradores del editor: archivos originales, ajustes y anotaciones. Sobreviven a una recarga y se pueden abrir desde **Recuperar otro borrador**. **Vaciar borrador** elimina el borrador actual. Para borrar otro, ábrelo y vacíalo. Desinstalar la extensión elimina su almacenamiento del navegador.
 - Los traspasos del popup al editor usan otro almacén IndexedDB. Se eliminan después de guardar el borrador. Los traspasos abandonados con más de 24 horas se limpian al transferir otra imagen.
 - El texto OCR permanece en la memoria del componente de edición actual y no se guarda en el borrador. Copiar una imagen o texto lo escribe explícitamente en el portapapeles del sistema. Las descargas permanecen en la carpeta administrada por el navegador y no se borran al vaciar un borrador.
@@ -57,7 +57,7 @@ Los borradores incluyen la imagen original, aunque el resultado exportado tenga 
 | `activeTab` | Acceso temporal a la página activa después de invocar la extensión. |
 | `scripting` | Seleccionar una región o desplazar la página y ocultar temporalmente elementos fijos durante una captura completa solicitada. Después se restauran la posición y los estilos. |
 | `downloads` | Guardar imágenes, capturas y archivos ZIP tras tu acción. |
-| `storage` | Preferencias y perfiles locales. |
+| `storage` | Preferencias locales. |
 | `clipboardWrite` | Copiar la imagen editada o el texto OCR al pulsar Copiar. |
 
 No se solicita `<all_urls>` ni permiso para leer el portapapeles. Pegar imágenes utiliza el evento del navegador después de pulsar Ctrl/Cmd+V. La captura completa actúa sobre el documento actual y su contenido renderizado; requiere mantener activa esa pestaña.

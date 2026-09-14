@@ -56,7 +56,7 @@ async function latestDownload(page: Page) {
     return { filename: item.filename as string, bytes: bytes as number[] };
   });
 }
-test('placement at unchanged dimensions, undo, rotation, saved draft and profiles', async ({ editor }) => {
+test('placement at unchanged dimensions, undo, rotation and saved draft', async ({ editor }) => {
   await add(editor);
   await editor.getByLabel('Mantener proporción', { exact: true }).uncheck();
   await editor.getByLabel('Ajustar posición y escala', { exact: false }).check();
@@ -81,9 +81,6 @@ test('placement at unchanged dimensions, undo, rotation, saved draft and profile
   await editor.reload();
   await expect(editor.getByLabel('Desplazamiento X (px)')).toHaveValue('20');
   await expect.poll(() => pixel(editor, 5, 50)).toEqual([0, 0, 0, 0]);
-  await editor.getByLabel('Nombre del perfil').fill('Prueba');
-  await editor.getByRole('button', { name: 'Guardar perfil', exact: true }).click();
-  await expect(editor.getByRole('option', { name: 'Prueba', exact: true })).toHaveCount(1);
   await editor.getByRole('button', { name: 'Girar 90°', exact: true }).click();
   await expect.poll(() => editor.locator('canvas[aria-label="Imagen para recortar"]').evaluate((c) => [(c as HTMLCanvasElement).width, (c as HTMLCanvasElement).height])).toEqual([100, 200]);
   await editor.setViewportSize({ width: 390, height: 844 });
@@ -156,7 +153,7 @@ test('full-page capture stitches pixels, restores scroll, and opens editor', asy
   } finally { server.close(); }
 });
 
-test('export downloads real output and proportional profiles adapt the batch', async ({ editor }) => {
+test('export downloads real output', async ({ editor }) => {
   const png = await editor.evaluate(() => {
     const canvas = document.createElement('canvas'); canvas.width = 400; canvas.height = 300;
     const ctx = canvas.getContext('2d')!, pixels = ctx.createImageData(400, 300);
@@ -174,23 +171,16 @@ test('export downloads real output and proportional profiles adapt the batch', a
   const exported = await latestDownload(editor);
   expect(exported.bytes.slice(0, 3)).toEqual([255, 216, 255]);
   expect(exported.bytes.length).toBeGreaterThan(0);
-  await editor.getByLabel('Ancho (0 = automático)', { exact: true }).fill('100');
-  await editor.getByLabel('Nombre del perfil').fill('Ancho 100');
-  await editor.getByRole('button', { name: 'Guardar perfil', exact: true }).click();
-  await add(editor);
-  await editor.getByLabel('Perfil guardado', { exact: false }).selectOption({ label: 'Ancho 100' });
-  await editor.getByRole('button', { name: 'Aplicar perfil a todas', exact: true }).click();
-  await expect.poll(() => editor.locator('canvas[aria-label="Resultado editado"]').evaluate((canvas) => [(canvas as HTMLCanvasElement).width, (canvas as HTMLCanvasElement).height])).toEqual([100, 50]);
 });
 
-test('every output format can be previewed through the shared pipeline', async ({ editor }) => {
+test('every output format encodes through the shared pipeline', async ({ editor }) => {
   test.setTimeout(120000);
   await add(editor);
   for (const format of ['png', 'jpeg', 'webp', 'avif', 'jxl', 'gif', 'bmp', 'ico', 'tiff', 'qoi', 'tga', 'svg', 'ppm', 'pgm', 'pbm', 'pam']) {
     await editor.getByLabel('Formato', { exact: true }).selectOption(format);
-    await editor.getByRole('button', { name: 'Vista previa y peso', exact: true }).click();
-    await expect(editor.locator('.editor-section .inline-status'), format).toHaveText('Vista previa del archivo exportado lista.', { timeout: 30000 });
-    await expect(editor.locator('canvas[aria-label="Después de comprimir"]'), format).toBeVisible();
+    await editor.getByRole('button', { name: 'Aplicar y descargar', exact: true }).click();
+    await expect(editor.locator('.editor-section .inline-status'), format).toContainText('Descarga iniciada:', { timeout: 30000 });
+    expect((await latestDownload(editor)).bytes.length, format).toBeGreaterThan(0);
   }
 });
 
