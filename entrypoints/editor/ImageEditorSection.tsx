@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import { decodeImageFile } from '../../lib/decode';
 import { renderEdit, transformFrame, encodeEdit, drawAnnotations } from '../../lib/editor-render';
@@ -38,10 +38,11 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   const [ratio, setRatio] = useState(0);
   const [tool, setTool] = useState<Tool>('none');
   const [color, setColor] = useState('#e53935');
-  const [textDraft, setTextDraft] = useState<{ x: number; y: number } | null>(null);
+  const [textDraft, setTextDraft] = useState<{ x: number; y: number; seed: string; index: number | null; color: string; size: number; opacity: number } | null>(null);
   const [size, setSize] = useState(.05);
   const [density, setDensity] = useState(1);
   const [stageWidth, setStageWidth] = useState(0);
+  const [justCommitted, setJustCommitted] = useState<Annotation | null>(null);
   const [ocrLanguage, setOcrLanguage] = useState('spa+eng');
   const [ocrText, setOcrText] = useState('');
   const [draftCrop, setDraftCrop] = useState<CropRect | null>(null);
@@ -53,6 +54,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   const stageRef = useRef<HTMLDivElement>(null);
   const annotationCanvas = useRef<HTMLCanvasElement>(null);
   const textDraftRef = useRef<HTMLDivElement>(null);
+  const discardingDraft = useRef(false);
   const alive = useRef(true);
   const locked = busy || disabled;
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
@@ -79,7 +81,16 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   useEffect(() => {
     if (selectedAnnotation !== null && selectedAnnotation >= edit.annotations.length) setSelectedAnnotation(null);
   }, [selectedAnnotation, edit.annotations.length]);
-  useEffect(() => { if (textDraft) textDraftRef.current?.focus(); }, [textDraft]);
+  useEffect(() => {
+    const el = textDraftRef.current;
+    if (!textDraft || !el) return;
+    el.innerText = textDraft.seed;
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el); range.collapse(false);
+    const selection = window.getSelection();
+    selection?.removeAllRanges(); selection?.addRange(range);
+  }, [textDraft]);
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage || typeof ResizeObserver === 'undefined') return;
@@ -94,8 +105,10 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
     canvas.width = output.width; canvas.height = output.height;
     const ctx = canvas.getContext('2d')!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (annotation) drawAnnotations(ctx, [annotation], output.width, output.height);
-  }, [annotation, output]);
+    const pending = [justCommitted, annotation].filter((item): item is Annotation => !!item);
+    if (pending.length) drawAnnotations(ctx, pending, output.width, output.height);
+  }, [annotation, justCommitted, output]);
+  useLayoutEffect(() => { setJustCommitted(null); }, [output]);
   function change(patch: Partial<EditState>) {
     setPast((items) => [...items.slice(-39), edit]); setFuture([]); onChange({ ...edit, ...patch });
   }
@@ -117,7 +130,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   const canvasWidth = tool === 'crop' ? fullCrop.width : output?.width;
   const canvasHeight = tool === 'crop' ? fullCrop.height : output?.height;
   // drawAnnotations sizes text off the shorter output edge; scale that to the displayed stage.
-  const draftFontPx = output && stageWidth ? Math.max(4, size * Math.min(output.width, output.height)) * (stageWidth / output.width) : 16;
+  const draftFontPx = output && stageWidth && textDraft ? Math.max(4, textDraft.size * Math.min(output.width, output.height)) * (stageWidth / output.width) : 16;
   const selectedAnnotationItem = selectedAnnotation === null ? null : draftAnnotation?.index === selectedAnnotation ? draftAnnotation.annotation : edit.annotations[selectedAnnotation] ?? null;
   const redactionColorLocked = tool === 'redact' || selectedAnnotationItem?.kind === 'redact';
   const modeTools: { value: Tool; label: string; icon: string; hint: string }[] = [
@@ -160,12 +173,26 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
     setAnnotation((current) => current && current.kind !== 'redact' ? { ...current, color: nextColor } : current);
     updateSelectedAnnotation({ color: nextColor }, (item) => item.kind !== 'redact');
   }
+  function discardTextDraft() {
+    // Escape unmounts the editor, and the blur that follows must not be read as a commit.
+    discardingDraft.current = true;
+    setDraftAnnotation(null); setTextDraft(null);
+  }
   function commitTextDraft() {
+    if (discardingDraft.current) { discardingDraft.current = false; return; }
     if (!textDraft) return;
     const value = (textDraftRef.current?.innerText ?? '').replace(/\s+$/, '');
-    setTextDraft(null);
+    const editing = textDraft.index;
+    setTextDraft(null); setDraftAnnotation(null);
+    if (editing !== null) {
+      // Rewriting an existing note: empty text deletes it.
+      change({ annotations: value.trim()
+        ? edit.annotations.map((item, index) => index === editing ? { ...item, text: value } : item)
+        : edit.annotations.filter((_, index) => index !== editing) });
+      return;
+    }
     if (!value.trim()) return;
-    change({ annotations: [...edit.annotations, { kind: 'text', x: textDraft.x, y: textDraft.y, endX: textDraft.x, endY: textDraft.y, color, size, opacity: density, text: value }] });
+    change({ annotations: [...edit.annotations, { kind: 'text', x: textDraft.x, y: textDraft.y, endX: textDraft.x, endY: textDraft.y, color: textDraft.color, size: textDraft.size, opacity: textDraft.opacity, text: value }] });
   }
   function updateSelectedAnnotation(patch: Partial<Annotation>, predicate: (item: Annotation) => boolean = () => true) {
     if (selectedAnnotation === null) return;
@@ -249,11 +276,17 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
     if (locked || tool === 'none' || tool === 'crop' || !output || event.button !== 0) return;
     if (tool === 'text') {
       event.preventDefault();
-      // A click both closes the note being written and starts the next one.
-      commitTextDraft();
       const at = point(event, true);
+      const hit = textAnnotationAt(at);
+      // A click closes the note being written and opens the one under the pointer, or a new one.
+      commitTextDraft();
+      discardingDraft.current = false;
       setSelectedAnnotation(null);
-      setTextDraft(at);
+      if (hit === null) { setTextDraft({ ...at, seed: '', index: null, color, size, opacity: density }); return; }
+      const item = edit.annotations[hit]!;
+      // Hide the original while its replacement is typed in the same spot.
+      setDraftAnnotation({ index: hit, annotation: { ...item, text: '' } });
+      setTextDraft({ x: item.x, y: item.y, seed: item.text, index: hit, color: item.color, size: item.size, opacity: item.opacity ?? 1 });
       return;
     }
     event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId);
@@ -263,6 +296,15 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
       text: tool === 'number' ? String(edit.annotations.filter((item) => item.kind === 'number').length + 1) : '' };
     setAnnotation(a);
   }
+  function textAnnotationAt(at: { x: number; y: number }) {
+    for (let index = edit.annotations.length - 1; index >= 0; index--) {
+      const item = edit.annotations[index];
+      if (item?.kind !== 'text') continue;
+      const bounds = annotationBounds(item);
+      if (at.x >= bounds.left && at.x <= bounds.left + bounds.width && at.y >= bounds.top && at.y <= bounds.top + bounds.height) return index;
+    }
+    return null;
+  }
   function annotateMove(event: PointerEvent<HTMLDivElement>) {
     if (!annotation) return; const p = point(event, true); setAnnotation({ ...annotation, endX: p.x, endY: p.y });
   }
@@ -270,6 +312,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
     if (annotation && (['text', 'number'].includes(annotation.kind) || Math.abs(annotation.endX - annotation.x) + Math.abs(annotation.endY - annotation.y) > .002)) {
       change({ annotations: [...edit.annotations, annotation] });
       setSelectedAnnotation(edit.annotations.length);
+      setJustCommitted(annotation);
     }
     setAnnotation(null);
   }
@@ -458,11 +501,11 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
             {tool !== 'crop' && <canvas className="annotation-overlay" ref={annotationCanvas} />}
             {textDraft && output && <div className="text-draft" key={`${textDraft.x},${textDraft.y}`} ref={textDraftRef}
               contentEditable suppressContentEditableWarning role="textbox" aria-label="Nota sobre la imagen" spellCheck={false}
-              style={{ left: `${textDraft.x * 100}%`, top: `${textDraft.y * 100}%`, maxWidth: `${(1 - textDraft.x) * 100}%`, color, fontSize: `${draftFontPx}px` }}
+              style={{ left: `${textDraft.x * 100}%`, top: `${textDraft.y * 100}%`, maxWidth: `${(1 - textDraft.x) * 100}%`, color: textDraft.color, fontSize: `${draftFontPx}px` }}
               onPointerDown={(event) => event.stopPropagation()}
               onBlur={commitTextDraft}
               onKeyDown={(event) => {
-                if (event.key === 'Escape') { event.preventDefault(); event.currentTarget.innerText = ''; setTextDraft(null); }
+                if (event.key === 'Escape') { event.preventDefault(); discardTextDraft(); }
                 else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); commitTextDraft(); }
               }} />}
             {tool !== 'crop' && selectedAnnotationItem && (() => {
