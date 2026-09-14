@@ -461,8 +461,8 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
             {!info.alpha && <label className="field">Fondo<input type="color" value={edit.background} onChange={(event) => change({ background: event.target.value })} /></label>}
             {edit.format === 'ico' && <label className="field">Resoluciones ICO<select value={edit.icoSizes.join(',')} onChange={(event) => change({ icoSizes: event.target.value.split(',').map(Number) })}><option value="16,32,48,64,128,256">16–256 px</option><option value="16,32,48">16, 32, 48 px</option><option value="256">256 px</option>{!['16,32,48,64,128,256', '16,32,48', '256'].includes(edit.icoSizes.join(',')) && <option value={edit.icoSizes.join(',')}>{edit.icoSizes.join(', ')} px</option>}</select></label>}
             {info.notes && <p className="muted">{info.notes}</p>}
-            <button className="primary" onClick={() => void run(exportImage)}>Descargar imagen actual</button>
             <button onClick={() => void run(async () => { await copyFrame(await renderEdit(source, edit)); setStatus('Imagen editada copiada como PNG.'); })}>Copiar PNG actual</button>
+            <button className="primary" onClick={() => void run(exportImage)}>Descargar imagen actual</button>
           </div>
           <div className="tool-group ocr-panel">
             <h3>Extraer texto · OCR local</h3>
