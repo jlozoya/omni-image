@@ -10,7 +10,6 @@ The extension converts local image files entirely in the browser and can capture
 - Multiple-file conversion from the popup.
 - Drag-and-drop file selection, in addition to the file picker.
 - Full-tab editor with per-image settings, crop, rotation, flips, manual placement, annotations and undo/redo.
-- Preview encoded output and file size; optional target size in KB.
 - Saved export profiles, batch downloads, ZIP archives and per-file error/retry handling.
 - Paste images with Ctrl/Cmd+V and copy edited results as PNG.
 - Persistent local drafts, including originals and edits, with reopening and explicit deletion.
@@ -85,8 +84,8 @@ Per image:
 1. Drag the crop box or its bottom-right handle, or enter numeric coordinates. Fixed ratios include 1:1, 4:3, 16:9 and 9:16. Rotate in 90-degree steps or flip either axis.
 2. Set output dimensions. A zero dimension is automatic; with **Mantener proporción**, entering one dimension calculates the other. Disable the lock and enable manual placement to position/scale the source inside an output canvas, even when its dimensions match the original.
 3. Add arrows, rectangles, opaque black redaction blocks, text or numbered markers on the result. Annotation coordinates are relative to the output canvas. **Deshacer/Rehacer** remembers up to 40 local edits while that image remains selected; Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z work outside text fields.
-4. Choose format/quality/background. **Vista previa y peso** encodes and decodes the actual export for comparison. Copy uses PNG at the edited dimensions.
-5. Download individually, apply export settings to all images, or save a named profile. A proportional width profile adapts each image's height. Batch downloads continue past failed images and provide a retry button. ZIP names have numeric prefixes to avoid collisions. Stopping a batch finishes the current image and keeps completed results.
+4. Choose format/quality/background. Copy uses PNG at the edited dimensions.
+5. Download individually, or save a named profile and apply it to the batch from the toolbar. A proportional width profile adapts each image's height. Batch downloads continue past failed images and provide a retry button. ZIP names have numeric prefixes to avoid collisions. Stopping a batch finishes the current image and keeps completed results.
 
 The popup hands files off through IndexedDB (`lib/pending-image.ts`). Reads are idempotent, including React StrictMode's double mount. Transfers are deleted only after the editor commits its durable draft; abandoned transfers older than 24 hours are cleaned on the next transfer. The editor replaces transfer IDs in its URL with a session ID. Drafts autosave locally after a short debounce and survive reloads. **Recuperar otro borrador** opens a previous draft, and **Vaciar borrador** deletes the current one. Drafts retain original pixels even after adding redactions; exported images contain flattened annotations.
 

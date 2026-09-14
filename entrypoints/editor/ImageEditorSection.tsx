@@ -6,15 +6,13 @@ import { copyFrame } from '../../lib/clipboard';
 import { downloadEncoded } from '../../lib/download';
 import { OUTPUT_FORMATS, formatInfo } from '../../lib/formats';
 import { basenameWithoutExtension, clamp, safeFilenamePart } from '../../lib/utils';
-import { exportProfile } from '../../lib/editor-model';
-import type { Annotation, EditState, EditorEntry, ExportProfile } from '../../lib/editor-model';
+import type { Annotation, EditState, EditorEntry } from '../../lib/editor-model';
 import type { ImageFrame, OutputFormat } from '../../lib/types';
 import type { CropRect } from '../../lib/crop';
 
 interface Props {
   entry: EditorEntry;
   onChange: (edit: EditState) => void;
-  onApplyAll: (profile: ExportProfile) => void;
   disabled: boolean;
 }
 type Tool = 'none' | 'crop' | Annotation['kind'];
@@ -28,7 +26,7 @@ function FrameCanvas({ frame, label }: { frame: ImageFrame | null; label: string
   }, [frame]);
   return <canvas ref={ref} aria-label={label} className="image-canvas" />;
 }
-export default function ImageEditorSection({ entry, onChange, onApplyAll, disabled }: Props) {
+export default function ImageEditorSection({ entry, onChange, disabled }: Props) {
   const { file, edit } = entry;
   const [source, setSource] = useState<ImageFrame | null>(null);
   const [output, setOutput] = useState<ImageFrame | null>(null);
@@ -45,7 +43,6 @@ export default function ImageEditorSection({ entry, onChange, onApplyAll, disabl
   const [density, setDensity] = useState(1);
   const [ocrLanguage, setOcrLanguage] = useState('spa+eng');
   const [ocrText, setOcrText] = useState('');
-  const [preview, setPreview] = useState<{ frame: ImageFrame; bytes: number; width: number; height: number; quality: number } | null>(null);
   const [draftCrop, setDraftCrop] = useState<CropRect | null>(null);
   const [draftPlacement, setDraftPlacement] = useState<{ offsetX: number; offsetY: number } | null>(null);
   const [draftAnnotation, setDraftAnnotation] = useState<{ index: number; annotation: Annotation } | null>(null);
@@ -71,7 +68,6 @@ export default function ImageEditorSection({ entry, onChange, onApplyAll, disabl
   useEffect(() => {
     if (!source) return;
     let cancelled = false;
-    setPreview(null);
     const timer = setTimeout(() => {
       renderEdit(source, renderState).then((frame) => { if (!cancelled) { setOutput(frame); setError(''); } })
         .catch((err) => { if (!cancelled) setError(String(err)); });
@@ -345,16 +341,11 @@ export default function ImageEditorSection({ entry, onChange, onApplyAll, disabl
     try { await action(); } catch (err) { if (alive.current) setStatus(err instanceof Error ? err.message : String(err)); }
     finally { if (alive.current) setBusy(false); }
   }
-  async function exportImage(previewOnly: boolean) {
+  async function exportImage() {
     if (!source) return;
     const result = await encodeEdit(source, edit, setStatus);
-    if (previewOnly) {
-      const frame = await decodeImageFile(new File([result.encoded.bytes as BlobPart], `preview.${result.encoded.extension}`, { type: result.encoded.mime }));
-      setPreview({ frame, bytes: result.encoded.bytes.length, width: result.width, height: result.height, quality: result.quality }); setStatus('Vista previa del archivo exportado lista.');
-    } else {
-      await downloadEncoded(result.encoded, `${safeFilenamePart(basenameWithoutExtension(file.name))}-editado.${result.encoded.extension}`);
-      setStatus(`Descarga iniciada: ${(result.encoded.bytes.length / 1024).toFixed(1)} KB · ${result.width} × ${result.height} px.`);
-    }
+    await downloadEncoded(result.encoded, `${safeFilenamePart(basenameWithoutExtension(file.name))}-editado.${result.encoded.extension}`);
+    setStatus(`Descarga iniciada: ${(result.encoded.bytes.length / 1024).toFixed(1)} KB · ${result.width} × ${result.height} px.`);
   }
   if (!source) return <section className="card"><p role="status">{error || 'Cargando imagen…'}</p></section>;
   return <section className="editor-section" onKeyDown={(event) => {
@@ -470,10 +461,8 @@ export default function ImageEditorSection({ entry, onChange, onApplyAll, disabl
             {!info.alpha && <label className="field">Fondo<input type="color" value={edit.background} onChange={(event) => change({ background: event.target.value })} /></label>}
             {edit.format === 'ico' && <label className="field">Resoluciones ICO<select value={edit.icoSizes.join(',')} onChange={(event) => change({ icoSizes: event.target.value.split(',').map(Number) })}><option value="16,32,48,64,128,256">16–256 px</option><option value="16,32,48">16, 32, 48 px</option><option value="256">256 px</option>{!['16,32,48,64,128,256', '16,32,48', '256'].includes(edit.icoSizes.join(',')) && <option value={edit.icoSizes.join(',')}>{edit.icoSizes.join(', ')} px</option>}</select></label>}
             {info.notes && <p className="muted">{info.notes}</p>}
-            <button onClick={() => void run(() => exportImage(true))}>Previsualizar exportación</button>
-            <button className="primary" onClick={() => void run(() => exportImage(false))}>Descargar imagen actual</button>
+            <button className="primary" onClick={() => void run(exportImage)}>Descargar imagen actual</button>
             <button onClick={() => void run(async () => { await copyFrame(await renderEdit(source, edit)); setStatus('Imagen editada copiada como PNG.'); })}>Copiar PNG actual</button>
-            <button onClick={() => onApplyAll(exportProfile(edit))}>Usar estos ajustes en el lote</button>
           </div>
           <div className="tool-group ocr-panel">
             <h3>Extraer texto · OCR local</h3>
@@ -484,11 +473,6 @@ export default function ImageEditorSection({ entry, onChange, onApplyAll, disabl
           </div>
         </aside>
       </div>
-      {preview && <div className="card">
-        <h3>Comparación de exportación</h3>
-        <p>{(file.size / 1024).toFixed(1)} KB → {(preview.bytes / 1024).toFixed(1)} KB · {preview.bytes <= file.size ? `${Math.round((1 - preview.bytes / file.size) * 100)}% menos` : `${Math.round((preview.bytes / file.size - 1) * 100)}% más`} · {preview.width} × {preview.height} px{info.qualityControl ? ` · Calidad ${Math.round(preview.quality * 100)}%` : ''}</p>
-        <div className="comparison"><div><h4>Edición sin compresión</h4><FrameCanvas frame={output} label="Antes de comprimir" /></div><div><h4>Archivo exportado</h4><FrameCanvas frame={preview.frame} label="Después de comprimir" /></div></div>
-      </div>}
     </fieldset>
     {status && <p className="inline-status toast" role="status">{status}</p>}
     {error && <p role="alert" className="note error">{error}</p>}

@@ -195,7 +195,7 @@ export default function App() {
           </div>
           <div className="batch-actions">
             <span className="commandbar-label">Lote completo</span>
-            <button className="primary" disabled={busy} onClick={() => void batch(false)}>Descargar lote ({entries.length})</button>
+            <button className="primary" disabled={busy} onClick={() => void batch(false)}>Descargar todo ({entries.length})</button>
             <button disabled={busy} onClick={() => void batch(true)}>Descargar ZIP del lote</button>
             {results.some((result) => !result.ok) && <button disabled={busy} onClick={() => void batch(false, true)}>Reintentar fallidas</button>}
             {busy && <button onClick={() => { cancelled.current = true; setStatus('Se detendrá al terminar la imagen actual.'); }}>Detener lote</button>}
@@ -206,7 +206,6 @@ export default function App() {
     {status && <p className="inline-status toast" role="status">{status}</p>}
     {!!results.length && <details className="card" open><summary>Resultados del lote</summary><ul>{results.map((result) => <li key={result.id} className={result.ok ? '' : 'note error'}>{result.name}: {result.message}</li>)}</ul></details>}
     {active && <ImageEditorSection key={active.id} entry={active} disabled={busy}
-      onChange={(edit) => setEntries((items) => items.map((item) => item.id === active.id ? { ...item, edit } : item))}
-      onApplyAll={applyAll} />}
+      onChange={(edit) => setEntries((items) => items.map((item) => item.id === active.id ? { ...item, edit } : item))} />}
   </main>;
 }

@@ -105,11 +105,9 @@ test('annotations are flattened and survive reload', async ({ editor }) => {
   await expect(editor.getByText('Guardando borrador…', { exact: false })).toHaveCount(0);
   await editor.reload(); await expect.poll(() => pixel(editor, 40, 40)).toEqual([0, 0, 0, 255]);
 });
-test('preview, clipboard, partial batch failure and ZIP', async ({ editor }) => {
+test('clipboard, partial batch failure and ZIP', async ({ editor }) => {
   await add(editor);
   await editor.getByLabel('Formato', { exact: true }).selectOption('webp');
-  await editor.getByRole('button', { name: 'Vista previa y peso', exact: true }).click();
-  await expect(editor.getByRole('heading', { name: 'Comparación de exportación' })).toBeVisible();
   await editor.getByRole('button', { name: 'Copiar imagen (PNG)', exact: true }).click();
   await expect(editor.locator('.editor-section .inline-status')).toHaveText('Imagen editada copiada como PNG.');
   await add(editor, [{ ...sample, name: 'second.svg' }]);
