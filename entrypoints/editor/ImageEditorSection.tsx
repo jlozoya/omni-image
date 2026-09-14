@@ -38,9 +38,10 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   const [ratio, setRatio] = useState(0);
   const [tool, setTool] = useState<Tool>('none');
   const [color, setColor] = useState('#e53935');
-  const [text, setText] = useState('');
+  const [textDraft, setTextDraft] = useState<{ x: number; y: number; value: string } | null>(null);
   const [size, setSize] = useState(.05);
   const [density, setDensity] = useState(1);
+  const [stageWidth, setStageWidth] = useState(0);
   const [ocrLanguage, setOcrLanguage] = useState('spa+eng');
   const [ocrText, setOcrText] = useState('');
   const [draftCrop, setDraftCrop] = useState<CropRect | null>(null);
@@ -78,6 +79,14 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
     if (selectedAnnotation !== null && selectedAnnotation >= edit.annotations.length) setSelectedAnnotation(null);
   }, [selectedAnnotation, edit.annotations.length]);
   useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => { if (entry) setStageWidth(entry.contentRect.width); });
+    observer.observe(stage);
+    setStageWidth(stage.getBoundingClientRect().width);
+    return () => observer.disconnect();
+  }, [output, transformed]);
+  useEffect(() => {
     if (!output || !annotationCanvas.current) return;
     const canvas = annotationCanvas.current;
     canvas.width = output.width; canvas.height = output.height;
@@ -105,6 +114,8 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   const canvasFrame = tool === 'crop' ? transformed : output;
   const canvasWidth = tool === 'crop' ? fullCrop.width : output?.width;
   const canvasHeight = tool === 'crop' ? fullCrop.height : output?.height;
+  // drawAnnotations sizes text off the shorter output edge; scale that to the displayed stage.
+  const draftFontPx = output && stageWidth ? Math.max(4, size * Math.min(output.width, output.height)) * (stageWidth / output.width) : 16;
   const selectedAnnotationItem = selectedAnnotation === null ? null : draftAnnotation?.index === selectedAnnotation ? draftAnnotation.annotation : edit.annotations[selectedAnnotation] ?? null;
   const redactionColorLocked = tool === 'redact' || selectedAnnotationItem?.kind === 'redact';
   const modeTools: { value: Tool; label: string; icon: string; hint: string }[] = [
@@ -123,7 +134,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
     { value: 'star', label: 'Estrella', icon: '☆', hint: 'Arrastra para dibujar una estrella.' },
     { value: 'bubble', label: 'Globo', icon: '▱', hint: 'Arrastra para dibujar un globo de texto.' },
     { value: 'redact', label: 'Ocultar', icon: '■', hint: 'Cubre información sensible.' },
-    { value: 'text', label: 'Texto', icon: 'T', hint: 'Escribe una nota y haz clic para colocarla.' },
+    { value: 'text', label: 'Texto', icon: 'T', hint: 'Haz clic sobre la imagen y escribe la nota ahí.' },
     { value: 'number', label: 'Número', icon: '#', hint: 'Haz clic para colocar marcadores numerados.' },
   ];
   function selectTool(nextTool: Tool) {
@@ -147,10 +158,11 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
     setAnnotation((current) => current && current.kind !== 'redact' ? { ...current, color: nextColor } : current);
     updateSelectedAnnotation({ color: nextColor }, (item) => item.kind !== 'redact');
   }
-  function chooseText(nextText: string) {
-    setText(nextText);
-    setAnnotation((current) => current?.kind === 'text' ? { ...current, text: nextText } : current);
-    updateSelectedAnnotation({ text: nextText }, (item) => item.kind === 'text');
+  function commitTextDraft() {
+    if (!textDraft) return;
+    setTextDraft(null);
+    if (!textDraft.value.trim()) return;
+    change({ annotations: [...edit.annotations, { kind: 'text', x: textDraft.x, y: textDraft.y, endX: textDraft.x, endY: textDraft.y, color, size, opacity: density, text: textDraft.value }] });
   }
   function updateSelectedAnnotation(patch: Partial<Annotation>, predicate: (item: Annotation) => boolean = () => true) {
     if (selectedAnnotation === null) return;
@@ -232,12 +244,20 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   }
   function annotateDown(event: PointerEvent<HTMLDivElement>) {
     if (locked || tool === 'none' || tool === 'crop' || !output || event.button !== 0) return;
+    if (tool === 'text') {
+      event.preventDefault();
+      // A click both closes the note being written and starts the next one.
+      commitTextDraft();
+      const at = point(event, true);
+      setSelectedAnnotation(null);
+      setTextDraft({ ...at, value: '' });
+      return;
+    }
     event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId);
     setSelectedAnnotation(null);
     const p = point(event, true);
     const a: Annotation = { kind: tool, ...p, endX: p.x, endY: p.y, color: tool === 'redact' ? '#000000' : color, size, opacity: tool === 'redact' ? 1 : density,
-      text: tool === 'number' ? String(edit.annotations.filter((item) => item.kind === 'number').length + 1) : text };
-    if (tool === 'text' && !text.trim()) { setStatus('Escribe el texto antes de colocarlo.'); return; }
+      text: tool === 'number' ? String(edit.annotations.filter((item) => item.kind === 'number').length + 1) : '' };
     setAnnotation(a);
   }
   function annotateMove(event: PointerEvent<HTMLDivElement>) {
@@ -402,7 +422,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
                 <input type="range" aria-label="Densidad" min={10} max={100} step={5} value={redactionColorLocked ? 100 : Math.round(density * 100)} disabled={redactionColorLocked} onChange={(event) => chooseDensity(Number(event.target.value))} />
               </label>
             </div>
-            {tool === 'text' && <label className="field">Texto<textarea value={selectedAnnotationItem?.kind === 'text' ? selectedAnnotationItem.text : text} onChange={(event) => chooseText(event.target.value)} /></label>}
+            {tool === 'text' && <p className="muted">Haz clic en la imagen y escribe la nota ahí. Esc descarta.</p>}
             <button disabled={!edit.annotations.length} onClick={() => { setSelectedAnnotation(null); change({ annotations: [] }); }}>Quitar anotaciones</button>
           </div>
           <div className="tool-group compact-actions">
@@ -415,7 +435,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
             <h3>{tool === 'crop' ? 'Recortar imagen' : 'Resultado editado'}</h3>
             {output && <span className="muted">{output.width} × {output.height} px</span>}
           </div>
-          {canvasFrame && canvasWidth && canvasHeight ? <div ref={stageRef} className="interactive-image unified-canvas" style={{ aspectRatio: `${canvasWidth}/${canvasHeight}`, cursor: tool === 'crop' ? 'crosshair' : tool === 'none' ? 'move' : 'crosshair' }}
+          {canvasFrame && canvasWidth && canvasHeight ? <div ref={stageRef} className="interactive-image unified-canvas" style={{ aspectRatio: `${canvasWidth}/${canvasHeight}`, cursor: tool === 'crop' ? 'crosshair' : tool === 'none' ? 'move' : tool === 'text' ? 'text' : 'crosshair' }}
             onPointerDown={(event) => {
               if (tool === 'crop') cropDown(event);
               else if (tool === 'none' && edit.placement && !locked && output && event.button === 0) {
@@ -433,6 +453,18 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
               {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => <span key={corner} className={`crop-handle crop-handle-${corner}`} data-mode={`resize-${corner}`} />)}
             </div>}
             {tool !== 'crop' && <canvas className="annotation-overlay" ref={annotationCanvas} />}
+            {textDraft && output && <textarea className="text-draft" autoFocus spellCheck={false}
+              style={{ left: `${textDraft.x * 100}%`, top: `${textDraft.y * 100}%`, maxWidth: `${(1 - textDraft.x) * 100}%`, color, fontSize: `${draftFontPx}px` }}
+              rows={textDraft.value.split(/\r?\n/).length}
+              cols={Math.max(6, ...textDraft.value.split(/\r?\n/).map((line) => line.length + 1))}
+              value={textDraft.value}
+              onPointerDown={(event) => event.stopPropagation()}
+              onChange={(event) => setTextDraft({ ...textDraft, value: event.target.value })}
+              onBlur={commitTextDraft}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') { event.preventDefault(); setTextDraft(null); }
+                else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); commitTextDraft(); }
+              }} />}
             {tool !== 'crop' && selectedAnnotationItem && (() => {
               const bounds = annotationBounds(selectedAnnotationItem);
               return <div className="annotation-selection" style={{ left: `${bounds.left * 100}%`, top: `${bounds.top * 100}%`, width: `${bounds.width * 100}%`, height: `${bounds.height * 100}%` }}
@@ -441,7 +473,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
               </div>;
             })()}
           </div> : <p role="status">{error || 'Actualizando resultado…'}</p>}
-          <p className="muted canvas-help">{tool === 'crop' ? 'Arrastra para crear un recorte, mueve el marco o ajusta la esquina.' : 'Flechas, rectángulos y ocultar: arrastra. Texto y números: haz clic. Deshacer: Ctrl/Cmd+Z.'} {edit.placement && tool === 'none' ? 'Arrastra el resultado para mover la imagen.' : ''}</p>
+          <p className="muted canvas-help">{tool === 'crop' ? 'Arrastra para crear un recorte, mueve el marco o ajusta la esquina.' : 'Flechas, rectángulos y ocultar: arrastra. Números: haz clic. Texto: haz clic y escribe sobre la imagen. Deshacer: Ctrl/Cmd+Z.'} {edit.placement && tool === 'none' ? 'Arrastra el resultado para mover la imagen.' : ''}</p>
         </div>
         <aside className="paint-sidebar right-sidebar" aria-label="Ajustes de edición">
           <div className="tool-group">
