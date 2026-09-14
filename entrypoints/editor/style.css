@@ -221,21 +221,20 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .text-draft {
   position: absolute;
   z-index: 3;
+  display: inline-block;
+  min-width: .6em;
   margin: 0;
   padding: 0;
-  border: 0;
-  outline: 2px dashed currentColor;
+  outline: 1.5px dashed #111318;
   outline-offset: 3px;
-  border-radius: 0;
-  background: #ffffffb3;
+  box-shadow: 0 0 0 1px #ffffffcc;
   font-family: system-ui, sans-serif;
   font-weight: 700;
   line-height: 1.2;
   white-space: pre;
-  overflow: hidden;
-  resize: none;
+  cursor: text;
 }
-.text-draft:focus-visible { outline: 2px dashed currentColor; outline-offset: 3px; }
+.text-draft:focus, .text-draft:focus-visible { outline: 1.5px dashed #111318; outline-offset: 3px; }
 .annotation-selection {
   position: absolute;
   min-width: 18px;

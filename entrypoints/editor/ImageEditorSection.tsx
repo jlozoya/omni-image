@@ -38,7 +38,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   const [ratio, setRatio] = useState(0);
   const [tool, setTool] = useState<Tool>('none');
   const [color, setColor] = useState('#e53935');
-  const [textDraft, setTextDraft] = useState<{ x: number; y: number; value: string } | null>(null);
+  const [textDraft, setTextDraft] = useState<{ x: number; y: number } | null>(null);
   const [size, setSize] = useState(.05);
   const [density, setDensity] = useState(1);
   const [stageWidth, setStageWidth] = useState(0);
@@ -52,6 +52,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   const gesture = useRef<{ x: number; y: number; crop: CropRect; mode: string; annotation?: Annotation; index?: number } | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const annotationCanvas = useRef<HTMLCanvasElement>(null);
+  const textDraftRef = useRef<HTMLDivElement>(null);
   const alive = useRef(true);
   const locked = busy || disabled;
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
@@ -78,6 +79,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   useEffect(() => {
     if (selectedAnnotation !== null && selectedAnnotation >= edit.annotations.length) setSelectedAnnotation(null);
   }, [selectedAnnotation, edit.annotations.length]);
+  useEffect(() => { if (textDraft) textDraftRef.current?.focus(); }, [textDraft]);
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage || typeof ResizeObserver === 'undefined') return;
@@ -160,9 +162,10 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   }
   function commitTextDraft() {
     if (!textDraft) return;
+    const value = (textDraftRef.current?.innerText ?? '').replace(/\s+$/, '');
     setTextDraft(null);
-    if (!textDraft.value.trim()) return;
-    change({ annotations: [...edit.annotations, { kind: 'text', x: textDraft.x, y: textDraft.y, endX: textDraft.x, endY: textDraft.y, color, size, opacity: density, text: textDraft.value }] });
+    if (!value.trim()) return;
+    change({ annotations: [...edit.annotations, { kind: 'text', x: textDraft.x, y: textDraft.y, endX: textDraft.x, endY: textDraft.y, color, size, opacity: density, text: value }] });
   }
   function updateSelectedAnnotation(patch: Partial<Annotation>, predicate: (item: Annotation) => boolean = () => true) {
     if (selectedAnnotation === null) return;
@@ -250,7 +253,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
       commitTextDraft();
       const at = point(event, true);
       setSelectedAnnotation(null);
-      setTextDraft({ ...at, value: '' });
+      setTextDraft(at);
       return;
     }
     event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId);
@@ -453,16 +456,13 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
               {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => <span key={corner} className={`crop-handle crop-handle-${corner}`} data-mode={`resize-${corner}`} />)}
             </div>}
             {tool !== 'crop' && <canvas className="annotation-overlay" ref={annotationCanvas} />}
-            {textDraft && output && <textarea className="text-draft" autoFocus spellCheck={false}
+            {textDraft && output && <div className="text-draft" key={`${textDraft.x},${textDraft.y}`} ref={textDraftRef}
+              contentEditable suppressContentEditableWarning role="textbox" aria-label="Nota sobre la imagen" spellCheck={false}
               style={{ left: `${textDraft.x * 100}%`, top: `${textDraft.y * 100}%`, maxWidth: `${(1 - textDraft.x) * 100}%`, color, fontSize: `${draftFontPx}px` }}
-              rows={textDraft.value.split(/\r?\n/).length}
-              cols={Math.max(6, ...textDraft.value.split(/\r?\n/).map((line) => line.length + 1))}
-              value={textDraft.value}
               onPointerDown={(event) => event.stopPropagation()}
-              onChange={(event) => setTextDraft({ ...textDraft, value: event.target.value })}
               onBlur={commitTextDraft}
               onKeyDown={(event) => {
-                if (event.key === 'Escape') { event.preventDefault(); setTextDraft(null); }
+                if (event.key === 'Escape') { event.preventDefault(); event.currentTarget.innerText = ''; setTextDraft(null); }
                 else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); commitTextDraft(); }
               }} />}
             {tool !== 'crop' && selectedAnnotationItem && (() => {
