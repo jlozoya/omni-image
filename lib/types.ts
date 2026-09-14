@@ -36,6 +36,7 @@ export interface EncodedImage {
 }
 
 export interface CaptureSettings {
+  destination: 'download' | 'editor';
   format: OutputFormat;
   quality: number;
   filenamePrefix: string;

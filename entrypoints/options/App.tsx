@@ -64,6 +64,11 @@ export default function App() {
       <section className="card">
         <h2>Captura de región</h2>
         <div className="form-grid">
+          <label className="field"><span>Después de capturar</span>
+            <select value={settings.destination} onChange={(event) => void persist({ ...settings, destination: event.target.value as CaptureSettings['destination'] })}>
+              <option value="download">Descargar directamente</option><option value="editor">Abrir en editor</option>
+            </select>
+          </label>
           <label className="field">
             <span>Formato predeterminado</span>
             <select value={settings.format} onChange={(e) => void persist({ ...settings, format: e.target.value as OutputFormat })}>

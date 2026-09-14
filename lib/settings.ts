@@ -1,6 +1,7 @@
 import type { CaptureSettings } from './types';
 
 export const DEFAULT_SETTINGS: CaptureSettings = {
+  destination: 'download',
   format: 'webp',
   quality: 0.9,
   filenamePrefix: 'capture',

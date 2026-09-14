@@ -5,6 +5,52 @@ import { getCaptureSettings } from '../lib/settings';
 import type { ExtensionMessage } from '../lib/messages';
 import type { ImageFrame, RegionRect } from '../lib/types';
 import { safeFilenamePart, timestampForFilename } from '../lib/utils';
+import { captureFullPage, assertActiveTab } from '../lib/full-page-capture';
+import { writeDraft } from '../lib/editor-store';
+import { defaultEdit } from '../lib/editor-model';
+
+let capturing = false;
+let selectedTab: number | undefined;
+
+async function reportCapture(ok: boolean, message: string) {
+  await browser.storage.local.set({ captureStatus: { ok, message, time: Date.now() } });
+  await browser.action.setBadgeText({ text: ok ? '' : '!' });
+  if (!ok) await browser.action.setBadgeBackgroundColor({ color: '#b3261e' });
+  await browser.action.setTitle({ title: message });
+}
+
+async function deliverCapture(frame: ImageFrame) {
+  const settings = await getCaptureSettings();
+  const filename = `${safeFilenamePart(settings.filenamePrefix)}-${timestampForFilename()}`;
+  if (settings.destination === 'editor') {
+    const encoded = await encodeFrame(frame, { ...settings, format: 'png' });
+    const id = crypto.randomUUID();
+    await writeDraft(id, [{ id, file: new File([encoded.bytes as BlobPart], `${filename}.png`, { type: 'image/png' }),
+      edit: { ...defaultEdit(), format: settings.format, quality: settings.quality, background: settings.background, icoSizes: settings.icoSizes } }]);
+    await browser.tabs.create({ url: `${browser.runtime.getURL('/editor.html')}?session=${encodeURIComponent(id)}` });
+    await reportCapture(true, 'Captura abierta en el editor.');
+  } else {
+    const encoded = await encodeFrame(frame, settings);
+    await browser.downloads.download({ url: bytesToDataUrl(encoded.bytes, encoded.mime), filename: `${filename}.${encoded.extension}`, saveAs: false });
+    await reportCapture(true, 'Descarga de captura iniciada.');
+  }
+}
+
+async function startFullCapture() {
+  if (capturing) {
+    await reportCapture(false, 'Ya hay una captura en curso. Espera a que termine o pulsa Esc para cancelarla.');
+    return;
+  }
+  capturing = true;
+  try {
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) throw new Error('No hay una pestaña activa.');
+    await reportCapture(true, 'Capturando página completa… Mantén la pestaña activa. Esc para cancelar.');
+    const frame = await captureFullPage(tab.id, tab.windowId);
+    await deliverCapture(frame);
+  } catch (error) { await reportCapture(false, error instanceof Error ? error.message : 'Falló la captura completa.'); }
+  finally { capturing = false; }
+}
 
 export default defineBackground({
   type: 'module',
@@ -15,38 +61,53 @@ export default defineBackground({
     });
 
     browser.runtime.onMessage.addListener((message: ExtensionMessage, sender) => {
+      if (sender.id !== browser.runtime.id) return;
+      if (message?.type === 'START_FULL_CAPTURE') { void startFullCapture(); return; }
       if (message?.type === 'START_CAPTURE') {
         void startRegionSelection();
         return;
       }
       if (message?.type === 'REGION_SELECTED') {
-        void captureSelectedRegion(message.rect, sender.tab?.windowId);
+        if (sender.tab?.id !== selectedTab || !sender.tab?.id) return;
+        selectedTab = undefined;
+        void captureSelectedRegion(message.rect, sender.tab.id, sender.tab.windowId);
       }
+      if (message?.type === 'REGION_CANCELLED') selectedTab = undefined;
     });
   },
 });
 
 async function startRegionSelection(): Promise<void> {
+  if (capturing) {
+    await reportCapture(false, 'Ya hay una captura en curso. Espera a que termine o pulsa Esc para cancelarla.');
+    return;
+  }
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return;
 
   try {
+    selectedTab = tab.id;
+    await reportCapture(true, 'Selecciona una región. Esc para cancelar.');
     await browser.scripting.executeScript({
       target: { tabId: tab.id },
       func: injectedRegionSelector,
     });
   } catch (error) {
-    console.error('Could not inject region selector:', error);
+    selectedTab = undefined;
+    await reportCapture(false, 'No se puede capturar esta pestaña. Abre una página web normal y vuelve a intentarlo.');
   }
 }
 
-async function captureSelectedRegion(rect: RegionRect, windowId?: number): Promise<void> {
+async function captureSelectedRegion(rect: RegionRect, tabId: number, windowId: number): Promise<void> {
+  if (capturing) return;
+  capturing = true;
   try {
+    if (![rect.x, rect.y, rect.width, rect.height, rect.viewportWidth, rect.viewportHeight].every(Number.isFinite) || rect.width <= 0 || rect.height <= 0 || rect.viewportWidth <= 0 || rect.viewportHeight <= 0) throw new Error('Región de captura inválida.');
     // Give the page one paint after removing the selection overlay.
     await new Promise((resolve) => setTimeout(resolve, 40));
-    const dataUrl = windowId === undefined
-      ? await browser.tabs.captureVisibleTab({ format: 'png' })
-      : await browser.tabs.captureVisibleTab(windowId, { format: 'png' });
+    await assertActiveTab(tabId, windowId);
+    const dataUrl = await browser.tabs.captureVisibleTab(windowId, { format: 'png' });
+    await assertActiveTab(tabId, windowId);
     const screenshot = await fetch(dataUrl).then((response) => response.blob());
     const bitmap = await createImageBitmap(screenshot);
 
@@ -65,25 +126,15 @@ async function captureSelectedRegion(rect: RegionRect, windowId?: number): Promi
     const pixels = ctx.getImageData(0, 0, sw, sh).data;
     const frame: ImageFrame = { width: sw, height: sh, data: new Uint8ClampedArray(pixels) };
 
-    const settings = await getCaptureSettings();
-    const encoded = await encodeFrame(frame, {
-      format: settings.format,
-      quality: settings.quality,
-      background: settings.background,
-      icoSizes: settings.icoSizes,
-    });
-    const filename = `${safeFilenamePart(settings.filenamePrefix)}-${timestampForFilename()}.${encoded.extension}`;
-    await browser.downloads.download({
-      url: bytesToDataUrl(encoded.bytes, encoded.mime),
-      filename,
-      saveAs: false,
-    });
+    await deliverCapture(frame);
   } catch (error) {
-    console.error('Capture failed:', error);
-  }
+    await reportCapture(false, error instanceof Error ? error.message : 'Falló la captura.');
+  } finally { capturing = false; }
 }
 
 function injectedRegionSelector(): void {
+  const host = globalThis as typeof globalThis & { __omniRegionCleanup?: () => void };
+  host.__omniRegionCleanup?.();
   const api = (globalThis as typeof globalThis & { browser?: typeof chrome }).browser ?? chrome;
   const existing = document.getElementById('__omni_image_capture_overlay__');
   if (existing) existing.remove();
@@ -159,6 +210,7 @@ function injectedRegionSelector(): void {
   const cleanup = () => {
     document.removeEventListener('keydown', onKeyDown, true);
     overlay.remove();
+    delete host.__omniRegionCleanup;
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -220,5 +272,6 @@ function injectedRegionSelector(): void {
   });
 
   document.addEventListener('keydown', onKeyDown, true);
+  host.__omniRegionCleanup = cleanup;
   document.documentElement.appendChild(overlay);
 }

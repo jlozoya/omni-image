@@ -2,6 +2,7 @@
   "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
     "jsx": "react-jsx",
+    "types": ["node"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true

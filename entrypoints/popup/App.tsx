@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { DragEvent } from 'react';
 import { Button, FileTrigger } from 'react-aria-components';
-import { decodeImageFile } from '../../lib/decode';
-import { downloadEncoded } from '../../lib/download';
-import { encodeFrame } from '../../lib/codec';
 import { ACCEPTED_INPUT_EXTENSIONS, OUTPUT_FORMATS, formatInfo } from '../../lib/formats';
 import { DEFAULT_SETTINGS, getCaptureSettings, saveCaptureSettings } from '../../lib/settings';
 import type { CaptureSettings, OutputFormat } from '../../lib/types';
 import { savePendingImage } from '../../lib/pending-image';
-import { basenameWithoutExtension, isCapturableUrl, safeFilenamePart } from '../../lib/utils';
+import { isCapturableUrl } from '../../lib/utils';
+import { defaultEdit } from '../../lib/editor-model';
+import { writeDraft } from '../../lib/editor-store';
 
 export default function App() {
   const [files, setFiles] = useState<File[]>([]);
@@ -20,12 +19,19 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [isDropActive, setIsDropActive] = useState(false);
   const [canCapture, setCanCapture] = useState(true);
+  const [captureStatus, setCaptureStatus] = useState('');
 
   useEffect(() => {
+    void browser.storage.local.get('captureStatus').then((data) => setCaptureStatus((data.captureStatus as { message?: string } | undefined)?.message ?? ''));
+    const changed = (changes: Record<string, { newValue?: unknown }>) => {
+      if (changes.captureStatus) setCaptureStatus((changes.captureStatus.newValue as { message?: string })?.message ?? '');
+    };
+    browser.storage.onChanged.addListener(changed);
     void getCaptureSettings().then(setCaptureSettings);
     void browser.tabs
       .query({ active: true, currentWindow: true })
       .then(([tab]) => setCanCapture(isCapturableUrl(tab?.url)));
+    return () => browser.storage.onChanged.removeListener(changed);
   }, []);
 
   const selectedInfo = useMemo(() => formatInfo(format), [format]);
@@ -34,21 +40,10 @@ export default function App() {
     if (!files.length || busy) return;
     setBusy(true);
     try {
-      let completed = 0;
-      for (const file of files) {
-        setStatus(`Convirtiendo ${completed + 1}/${files.length}: ${file.name}`);
-        const frame = await decodeImageFile(file);
-        const encoded = await encodeFrame(frame, {
-          format,
-          quality: quality / 100,
-          background,
-          icoSizes: DEFAULT_SETTINGS.icoSizes,
-        });
-        const filename = `${safeFilenamePart(basenameWithoutExtension(file.name))}.${encoded.extension}`;
-        await downloadEncoded(encoded, filename);
-        completed++;
-      }
-      setStatus(`${completed} archivo${completed === 1 ? '' : 's'} descargado${completed === 1 ? '' : 's'}.`);
+      const session = crypto.randomUUID();
+      await writeDraft(session, files.map((file) => ({ id: crypto.randomUUID(), file, edit: { ...defaultEdit(), format, quality: quality / 100, background } })));
+      await browser.tabs.create({ url: `${browser.runtime.getURL('/editor.html')}?session=${session}&batch=1` });
+      window.close();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Falló la conversión.');
     } finally {
@@ -67,6 +62,11 @@ export default function App() {
     window.close();
   }
 
+  async function updateDestination(destination: CaptureSettings['destination']) {
+    const next = { ...captureSettings, destination };
+    try { await saveCaptureSettings(next); setCaptureSettings(next); } catch (error) { setStatus(String(error)); }
+  }
+
   function acceptDroppedFiles(list: FileList | null) {
     if (!list?.length) return;
     const accepted = ACCEPTED_INPUT_EXTENSIONS.split(',');
@@ -75,7 +75,7 @@ export default function App() {
       const ext = dot >= 0 ? file.name.slice(dot).toLowerCase() : '';
       return accepted.includes(ext);
     });
-    if (dropped.length) setFiles(dropped);
+    if (dropped.length) setFiles((current) => [...current, ...dropped]);
   }
 
   function handleDragOver(event: DragEvent<HTMLDivElement>) {
@@ -96,6 +96,9 @@ export default function App() {
   }
 
   async function openEditor() {
+    if (busy) return;
+    setBusy(true);
+    try {
     let url = browser.runtime.getURL('/editor.html');
     if (files.length) {
       const ids = await Promise.all(files.map((file) => savePendingImage(file)));
@@ -103,6 +106,8 @@ export default function App() {
     }
     await browser.tabs.create({ url });
     window.close();
+    } catch (error) { setStatus(String(error)); }
+    finally { setBusy(false); }
   }
 
   function removeFile(index: number) {
@@ -191,7 +196,7 @@ export default function App() {
         {selectedInfo.notes && <p className="note">{selectedInfo.notes}</p>}
 
         <div className="button-row">
-          <Button className="secondary-button" onPress={() => void openEditor()}>
+          <Button className="secondary-button" isDisabled={busy} onPress={() => void openEditor()}>
             {files.length === 0 ? 'Abrir editor' : files.length > 1 ? 'Editar imágenes' : 'Editar imagen'}
           </Button>
           <Button className="primary-button" isDisabled={!files.length || busy} onPress={convertSelected}>
@@ -209,6 +214,12 @@ export default function App() {
         </div>
 
         <label className="field">
+          <span>Después de capturar</span>
+          <select value={captureSettings.destination} onChange={(event) => void updateDestination(event.target.value as CaptureSettings['destination'])}>
+            <option value="download">Descargar directamente</option><option value="editor">Abrir en editor</option>
+          </select>
+        </label>
+        <label className="field">
           <span>Formato de captura</span>
           <select value={captureSettings.format} onChange={(e) => void updateCaptureFormat(e.target.value as OutputFormat)}>
             {OUTPUT_FORMATS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
@@ -216,6 +227,9 @@ export default function App() {
         </label>
 
         <Button className="secondary-button" isDisabled={!canCapture} onPress={startCapture}>Seleccionar área ahora</Button>
+        <Button className="secondary-button" isDisabled={!canCapture} onPress={async () => { await browser.runtime.sendMessage({ type: 'START_FULL_CAPTURE' }); window.close(); }}>Capturar página completa</Button>
+        <p className="note">La captura completa recorre la página. Mantén la pestaña activa; Esc cancela.</p>
+        {captureStatus && <p className="note" role="status">{captureStatus}</p>}
         {!canCapture && <p className="note">No se puede capturar esta pestaña (páginas internas del navegador o de otras extensiones).</p>}
       </section>
 
