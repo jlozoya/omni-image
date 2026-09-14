@@ -166,7 +166,6 @@ export default function App() {
         </div>)}</div>
         <div className="workspace-commandbar">
           <div className="batch-actions">
-            <span className="commandbar-label">Lote completo</span>
             <button className="primary" disabled={busy} onClick={() => void batch(false)}>Descargar todo ({entries.length})</button>
             <button disabled={busy} onClick={() => void batch(true)}>Descargar ZIP del lote</button>
             {results.some((result) => !result.ok) && <button disabled={busy} onClick={() => void batch(false, true)}>Reintentar fallidas</button>}
