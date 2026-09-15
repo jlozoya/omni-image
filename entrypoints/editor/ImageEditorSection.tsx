@@ -219,6 +219,15 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
     if (gesture.current && draftCrop) change({ crop: { x: Math.round(draftCrop.x), y: Math.round(draftCrop.y), width: Math.max(1, Math.round(draftCrop.width)), height: Math.max(1, Math.round(draftCrop.height)) }, width: 0, height: 0 });
     gesture.current = null; setDraftCrop(null); event.currentTarget.releasePointerCapture(event.pointerId);
   }
+  function changeCanvas(key: 'width' | 'height', value: number) {
+    const next = clamp(Math.round(value), 1, 32767);
+    change({
+      width: key === 'width' ? next : exportWidth,
+      height: key === 'height' ? next : exportHeight,
+      lockAspect: false,
+      placement: true,
+    });
+  }
   function chooseRatio(value: number) {
     setRatio(value); if (!value) return;
     const width = Math.min(crop.width, crop.height * value), height = width / value;
@@ -331,6 +340,15 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
             </div>
           </div>
           {tool === 'none' && <div className="tool-group active-tool-panel">
+            <h3>Tamaño del lienzo</h3>
+            <div className="numeric-grid">
+              <label className="field">Ancho<input aria-label="Ancho del lienzo" type="number" min={1} max={32767} value={exportWidth} onChange={(event) => changeCanvas('width', Number(event.target.value))} /></label>
+              <label className="field">Alto<input aria-label="Alto del lienzo" type="number" min={1} max={32767} value={exportHeight} onChange={(event) => changeCanvas('height', Number(event.target.value))} /></label>
+            </div>
+            <button onClick={() => change({ width: exportBase.width, height: exportBase.height, lockAspect: false, placement: true, zoom: 1, offsetX: 0, offsetY: 0 })}>Ajustar lienzo a la imagen</button>
+            <p className="muted">La imagen se encaja entera dentro del lienzo, sin recortarse; el sobrante se rellena con el color de fondo.</p>
+          </div>}
+          {tool === 'none' && <div className="tool-group active-tool-panel">
             <h3>Posición y escala</h3>
             <label className="checkbox-field"><input type="checkbox" checked={edit.placement} onChange={(event) => change({ placement: event.target.checked })} />Ajustar posición y escala</label>
             {edit.placement && <>
@@ -339,7 +357,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
                 <label className="field">Y<input aria-label="Desplazamiento Y (px)" type="number" value={edit.offsetY} onChange={(event) => change({ offsetY: Number(event.target.value) })} /></label>
               </div>
               <label className="field">Escala: {Math.round(edit.zoom * 100)}%<input type="range" min={10} max={500} value={edit.zoom * 100} onChange={(event) => change({ zoom: Number(event.target.value) / 100 })} /></label>
-              <button onClick={() => change({ offsetX: 0, offsetY: 0, zoom: 1 })}>Centrar</button>
+              <button onClick={() => change({ offsetX: 0, offsetY: 0, zoom: 1 })}>Centrar y encajar</button>
             </>}
           </div>}
           {tool === 'crop' && <div className="tool-group active-tool-panel">
