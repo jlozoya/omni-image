@@ -213,6 +213,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 .batch-actions { margin-left: auto; justify-content: flex-end; }
 .batch-actions button { min-height: 38px; }
+.batch-actions .batch-format { min-width: 210px; }
 .numeric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; }
 .interactive-image { position: relative; width: 100%; max-width: 720px; overflow: hidden; touch-action: none; user-select: none; background: conic-gradient(#e5e6ea 25%, transparent 0 50%, #e5e6ea 0 75%, transparent 0) 0 0 / 16px 16px; }
 .image-canvas { display: block; width: 100%; height: auto; }

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { zipSync } from 'fflate';
-import { ACCEPTED_INPUT_EXTENSIONS } from '../../lib/formats';
+import { ACCEPTED_INPUT_EXTENSIONS, OUTPUT_FORMATS } from '../../lib/formats';
 import { takePendingImage, removePendingImages } from '../../lib/pending-image';
 import { readDraft, writeDraft, listDrafts } from '../../lib/editor-store';
 import type { DraftSummary } from '../../lib/editor-store';
 import { defaultEdit } from '../../lib/editor-model';
 import type { EditorEntry } from '../../lib/editor-model';
+import type { OutputFormat } from '../../lib/types';
 import { decodeImageFile } from '../../lib/decode';
 import { encodeEdit } from '../../lib/editor-render';
 import { downloadEncoded } from '../../lib/download';
@@ -37,6 +38,7 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
+  const [batchFormat, setBatchFormat] = useState<OutputFormat | ''>('');
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
   const cancelled = useRef(false);
@@ -109,7 +111,7 @@ export default function App() {
         setStatus(`Procesando ${index + 1}/${queue.length}: ${entry.file.name}`);
         try {
           const source = await decodeImageFile(entry.file);
-          const { encoded } = await encodeEdit(source, entry.edit);
+          const { encoded } = await encodeEdit(source, batchFormat ? { ...entry.edit, format: batchFormat } : entry.edit);
           const name = `${String(index + 1).padStart(3, '0')}-${safeFilenamePart(basenameWithoutExtension(entry.file.name))}.${encoded.extension}`;
           if (zip) {
             if (totalBytes + encoded.bytes.length > 200 * 1024 * 1024) throw new Error('El ZIP supera 200 MB. Divide el lote o descarga archivos individuales.');
@@ -166,6 +168,10 @@ export default function App() {
         </div>)}</div>
         <div className="workspace-commandbar">
           <div className="batch-actions">
+            <label className="field batch-format">Formato<select aria-label="Formato del lote" value={batchFormat} disabled={busy} onChange={(event) => setBatchFormat(event.target.value as OutputFormat | '')}>
+              <option value="">Formato de cada imagen</option>
+              {OUTPUT_FORMATS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            </select></label>
             <button className="primary" disabled={busy} onClick={() => void batch(false)}>Descargar todo ({entries.length})</button>
             <button disabled={busy} onClick={() => void batch(true)}>Descargar ZIP del lote</button>
             {results.some((result) => !result.ok) && <button disabled={busy} onClick={() => void batch(false, true)}>Reintentar fallidas</button>}
