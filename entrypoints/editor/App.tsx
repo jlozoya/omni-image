@@ -39,6 +39,7 @@ export default function App() {
   const [status, setStatus] = useState('');
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
   const [batchFormat, setBatchFormat] = useState<OutputFormat>('png');
+  const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
   const cancelled = useRef(false);
@@ -141,7 +142,12 @@ export default function App() {
     }
   }, [loading]);
   const active = entries.find((entry) => entry.id === selected) ?? entries[0];
-  return <main className="editor-page" onDragOver={(event) => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); addFiles(event.dataTransfer.files); }}>
+  const dragDepth = useRef(0);
+  return <main className="editor-page"
+    onDragOver={(event) => { if (event.dataTransfer.types.includes('Files')) event.preventDefault(); }}
+    onDragEnter={(event) => { if (event.dataTransfer.types.includes('Files')) { dragDepth.current++; setDragging(true); } }}
+    onDragLeave={() => { dragDepth.current = Math.max(0, dragDepth.current - 1); if (!dragDepth.current) setDragging(false); }}
+    onDrop={(event) => { event.preventDefault(); dragDepth.current = 0; setDragging(false); addFiles(event.dataTransfer.files); }}>
     <header><h1>Omni Image · Editor</h1><p>Imágenes, capturas y texto. Todo se procesa en tu dispositivo.</p></header>
     <section className="card workspace-panel">
       <div className="workspace-header">
@@ -160,7 +166,12 @@ export default function App() {
       {drafts.some((draft) => draft.id !== sessionId) && <label className="field draft-picker">Recuperar borrador<select value="" disabled={saving || busy} onChange={(event) => { if (event.target.value) location.href = `${browser.runtime.getURL('/editor.html')}?session=${encodeURIComponent(event.target.value)}`; }}><option value="">Elegir borrador local</option>{drafts.filter((draft) => draft.id !== sessionId).map((draft) => <option value={draft.id} key={draft.id}>{draft.name} · {draft.count} imagen(es)</option>)}</select></label>}
       {loading && <p role="status">Cargando borrador…</p>}
       {loadFailed && <div className="toolbar"><button onClick={() => location.reload()}>Reintentar carga</button><button onClick={() => { location.href = `${browser.runtime.getURL('/editor.html')}?session=${crypto.randomUUID()}`; }}>Abrir borrador nuevo</button></div>}
-      {!loading && !entries.length && <p>No hay imágenes. Agrega archivos o pega una captura para comenzar.</p>}
+      {!loading && !entries.length && <label className="dropzone" data-dragging={dragging || undefined}>
+        <input className="visually-hidden" aria-label="Agregar imágenes al arrastrar" type="file" multiple accept={ACCEPTED_INPUT_EXTENSIONS} disabled={busy || loadFailed} onChange={(event) => { addFiles(event.target.files); event.target.value = ''; }} />
+        <span className="dropzone-icon" aria-hidden="true">⤓</span>
+        <strong>{dragging ? 'Suelta las imágenes aquí' : 'Arrastra imágenes aquí'}</strong>
+        <span className="muted">o haz clic para elegir archivos · también puedes pegar una captura con Ctrl/Cmd+V</span>
+      </label>}
       {!!entries.length && <>
         <div className="image-list" aria-label="Imágenes del borrador">{entries.map((entry, index) => <div key={entry.id} className={entry.id === active?.id ? 'image-tab selected' : 'image-tab'}>
           <button className="image-tab-main" aria-pressed={entry.id === active?.id} onClick={() => setSelected(entry.id)} disabled={busy}><span aria-hidden="true">{index + 1}</span>{entry.file.name}</button>

@@ -77,7 +77,7 @@ A future animation pipeline should explicitly decode frame timing/disposal and u
 
 Select images in the popup and press **Editar imagen(es)**, or open the editor directly and use **Agregar imágenes**, drag files onto the page or paste with Ctrl/Cmd+V. The image list switches between independent edits, keeping only the active image decoded for editing.
 
-The editor can open with no images. The file picker remains available while editing. **Convertir y descargar** in the popup transfers the configured batch to the editor and starts it there, so closing the popup does not interrupt conversion.
+The editor can open with no images; the empty state is a drop target that also opens the file picker on click. The file picker remains available while editing. **Convertir y descargar** in the popup transfers the configured batch to the editor and starts it there, so closing the popup does not interrupt conversion.
 
 Per image:
 
