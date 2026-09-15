@@ -29,6 +29,43 @@ function FrameCanvas({ frame, label, style }: { frame: ImageFrame | null; label:
   }, [frame]);
   return <canvas ref={ref} aria-label={label} className="image-canvas" style={style} />;
 }
+/** Slider paired with a typable number; the wheel nudges it without scrolling the sidebar. */
+function SliderField({ label, value, min, max, step = 1, suffix, onChange }: {
+  label: string; value: number; min: number; max: number; step?: number; suffix?: string; onChange: (next: number) => void;
+}) {
+  const row = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => { setDraft(String(value)); }, [value]);
+  useEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    // React registers wheel passively on the root, so holding the page still needs a native listener.
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const amount = (event.deltaY > 0 ? -1 : 1) * step * (event.shiftKey ? 10 : 1);
+      onChange(clamp(Math.round((value + amount) / step) * step, min, max));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  });
+  return <label className="field">{label}
+    <div className="slider-row" ref={row}>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
+      <input className="slider-number" type="number" min={min} max={max} step={step} value={draft} aria-label={label}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          const next = Number(event.target.value);
+          // Out-of-range or half-typed values wait for blur instead of snapping.
+          if (event.target.value !== '' && Number.isFinite(next) && next >= min && next <= max) onChange(next);
+        }}
+        onBlur={() => {
+          const next = Number(draft);
+          onChange(clamp(draft !== '' && Number.isFinite(next) ? next : value, min, max));
+        }} />
+      {suffix && <span className="slider-suffix" aria-hidden="true">{suffix}</span>}
+    </div>
+  </label>;
+}
 export default function ImageEditorSection({ entry, onChange, disabled }: Props) {
   const { file, edit } = entry;
   const [source, setSource] = useState<ImageFrame | null>(null);
@@ -346,7 +383,6 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
               <label className="field">Alto<input aria-label="Alto del lienzo" type="number" min={1} max={32767} value={exportHeight} onChange={(event) => changeCanvas('height', Number(event.target.value))} /></label>
             </div>
             <button onClick={() => change({ width: exportBase.width, height: exportBase.height, lockAspect: false, placement: true, zoom: 1, offsetX: 0, offsetY: 0 })}>Ajustar lienzo a la imagen</button>
-            <p className="muted">La imagen se encaja entera dentro del lienzo, sin recortarse; el sobrante se rellena con el color de fondo.</p>
           </div>}
           {tool === 'none' && <div className="tool-group active-tool-panel">
             <h3>Posición y escala</h3>
@@ -356,7 +392,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
                 <label className="field">X<input aria-label="Desplazamiento X (px)" type="number" value={edit.offsetX} onChange={(event) => change({ offsetX: Number(event.target.value) })} /></label>
                 <label className="field">Y<input aria-label="Desplazamiento Y (px)" type="number" value={edit.offsetY} onChange={(event) => change({ offsetY: Number(event.target.value) })} /></label>
               </div>
-              <label className="field">Escala: {Math.round(edit.zoom * 100)}%<input type="range" min={10} max={500} value={edit.zoom * 100} onChange={(event) => change({ zoom: Number(event.target.value) / 100 })} /></label>
+              <SliderField label="Escala" value={Math.round(edit.zoom * 100)} min={10} max={500} suffix="%" onChange={(next) => change({ zoom: next / 100 })} />
               <button onClick={() => change({ offsetX: 0, offsetY: 0, zoom: 1 })}>Centrar y encajar</button>
             </>}
           </div>}

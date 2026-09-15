@@ -219,6 +219,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   align-items: center;
   min-width: 330px;
 }
+.slider-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.slider-row input[type="range"] { flex: 1 1 auto; min-width: 0; width: auto; }
+.slider-row .slider-number { flex: 0 0 62px; width: 62px; text-align: right; padding: 7px 8px; }
+.slider-suffix { flex: none; color: #70757d; font-size: 12px; font-weight: 650; }
 .numeric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; }
 .interactive-image { position: relative; width: 100%; max-width: 720px; overflow: hidden; touch-action: none; user-select: none; background: conic-gradient(#e5e6ea 25%, transparent 0 50%, #e5e6ea 0 75%, transparent 0) 0 0 / 16px 16px; }
 .image-canvas { display: block; width: 100%; height: auto; }
