@@ -1,0 +1,9 @@
+dist
+.wxt
+.output
+.test-artifacts
+test-results
+playwright-report
+node_modules
+bun.lock
+*.zip
