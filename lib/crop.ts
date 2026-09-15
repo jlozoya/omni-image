@@ -29,7 +29,10 @@ export function cropFrame(frame: ImageFrame, rect: CropRect, background?: string
   const target = makeCanvas(width, height);
   const ctx = target.getContext('2d');
   if (!ctx) throw new Error('Could not create 2D canvas context.');
-  if (background) { ctx.fillStyle = background; ctx.fillRect(0, 0, width, height); }
+  if (background) {
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, width, height);
+  }
   ctx.drawImage(frameToCanvas(frame) as CanvasImageSource, -x, -y);
   return { width, height, data: new Uint8ClampedArray(ctx.getImageData(0, 0, width, height).data) };
 }

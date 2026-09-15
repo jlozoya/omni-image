@@ -33,7 +33,13 @@ declare module 'gifenc' {
   export function quantize(
     data: Uint8ClampedArray | Uint8Array,
     maxColors: number,
-    options?: { format?: 'rgb565' | 'rgba4444' | 'rgb444'; oneBitAlpha?: boolean | number; clearAlpha?: boolean; clearAlphaThreshold?: number; clearAlphaColor?: number },
+    options?: {
+      format?: 'rgb565' | 'rgba4444' | 'rgb444';
+      oneBitAlpha?: boolean | number;
+      clearAlpha?: boolean;
+      clearAlphaThreshold?: number;
+      clearAlphaColor?: number;
+    },
   ): GifPalette;
 
   export function applyPalette(

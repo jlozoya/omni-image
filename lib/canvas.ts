@@ -77,7 +77,17 @@ export async function placeFrame(
     ctx.fillRect(0, 0, width, height);
   }
 
-  ctx.drawImage(source as CanvasImageSource, 0, 0, frame.width, frame.height, Math.round(offsetX), Math.round(offsetY), drawWidth, drawHeight);
+  ctx.drawImage(
+    source as CanvasImageSource,
+    0,
+    0,
+    frame.width,
+    frame.height,
+    Math.round(offsetX),
+    Math.round(offsetY),
+    drawWidth,
+    drawHeight,
+  );
 
   const data = ctx.getImageData(0, 0, width, height).data;
   return { width, height, data: new Uint8ClampedArray(data) };

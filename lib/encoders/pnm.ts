@@ -41,6 +41,8 @@ export function encodePbm(frame: ImageFrame): Uint8Array {
 }
 
 export function encodePam(frame: ImageFrame): Uint8Array {
-  const header = ascii(`P7\nWIDTH ${frame.width}\nHEIGHT ${frame.height}\nDEPTH 4\nMAXVAL 255\nTUPLTYPE RGB_ALPHA\nENDHDR\n`);
+  const header = ascii(
+    `P7\nWIDTH ${frame.width}\nHEIGHT ${frame.height}\nDEPTH 4\nMAXVAL 255\nTUPLTYPE RGB_ALPHA\nENDHDR\n`,
+  );
   return concatBytes([header, new Uint8Array(frame.data)]);
 }

@@ -22,9 +22,12 @@ export default function App() {
   const [captureStatus, setCaptureStatus] = useState('');
 
   useEffect(() => {
-    void browser.storage.local.get('captureStatus').then((data) => setCaptureStatus((data.captureStatus as { message?: string } | undefined)?.message ?? ''));
+    void browser.storage.local
+      .get('captureStatus')
+      .then((data) => setCaptureStatus((data.captureStatus as { message?: string } | undefined)?.message ?? ''));
     const changed = (changes: Record<string, { newValue?: unknown }>) => {
-      if (changes.captureStatus) setCaptureStatus((changes.captureStatus.newValue as { message?: string })?.message ?? '');
+      if (changes.captureStatus)
+        setCaptureStatus((changes.captureStatus.newValue as { message?: string })?.message ?? '');
     };
     browser.storage.onChanged.addListener(changed);
     void getCaptureSettings().then(setCaptureSettings);
@@ -41,7 +44,14 @@ export default function App() {
     setBusy(true);
     try {
       const session = crypto.randomUUID();
-      await writeDraft(session, files.map((file) => ({ id: crypto.randomUUID(), file, edit: { ...defaultEdit(), format, quality: quality / 100, background } })));
+      await writeDraft(
+        session,
+        files.map((file) => ({
+          id: crypto.randomUUID(),
+          file,
+          edit: { ...defaultEdit(), format, quality: quality / 100, background },
+        })),
+      );
       await browser.tabs.create({ url: `${browser.runtime.getURL('/editor.html')}?session=${session}&batch=1` });
       window.close();
     } catch (error) {
@@ -64,7 +74,12 @@ export default function App() {
 
   async function updateDestination(destination: CaptureSettings['destination']) {
     const next = { ...captureSettings, destination };
-    try { await saveCaptureSettings(next); setCaptureSettings(next); } catch (error) { setStatus(String(error)); }
+    try {
+      await saveCaptureSettings(next);
+      setCaptureSettings(next);
+    } catch (error) {
+      setStatus(String(error));
+    }
   }
 
   function acceptDroppedFiles(list: FileList | null) {
@@ -99,15 +114,18 @@ export default function App() {
     if (busy) return;
     setBusy(true);
     try {
-    let url = browser.runtime.getURL('/editor.html');
-    if (files.length) {
-      const ids = await Promise.all(files.map((file) => savePendingImage(file)));
-      url += `?ids=${ids.map(encodeURIComponent).join(',')}`;
+      let url = browser.runtime.getURL('/editor.html');
+      if (files.length) {
+        const ids = await Promise.all(files.map((file) => savePendingImage(file)));
+        url += `?ids=${ids.map(encodeURIComponent).join(',')}`;
+      }
+      await browser.tabs.create({ url });
+      window.close();
+    } catch (error) {
+      setStatus(String(error));
+    } finally {
+      setBusy(false);
     }
-    await browser.tabs.create({ url });
-    window.close();
-    } catch (error) { setStatus(String(error)); }
-    finally { setBusy(false); }
   }
 
   function removeFile(index: number) {
@@ -121,7 +139,10 @@ export default function App() {
           <h1>Omni Image</h1>
           <p>Convertir y capturar, todo local.</p>
         </div>
-        <Button className="icon-button" onPress={() => browser.runtime.openOptionsPage()} aria-label="Abrir configuración">
+        <Button
+          className="icon-button"
+          onPress={() => browser.runtime.openOptionsPage()}
+          aria-label="Abrir configuración">
           ⚙
         </Button>
       </header>
@@ -138,16 +159,20 @@ export default function App() {
           className={`drop-zone${isDropActive ? ' drop-zone-active' : ''}`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
+          onDrop={handleDrop}>
           <FileTrigger
             allowsMultiple
             acceptedFileTypes={ACCEPTED_INPUT_EXTENSIONS.split(',')}
-            onSelect={(list) => setFiles(list ? Array.from(list) : [])}
-          >
+            onSelect={(list) => setFiles(list ? Array.from(list) : [])}>
             <Button className="drop-button">
-              <strong>{files.length ? `${files.length} archivo${files.length === 1 ? '' : 's'} seleccionado${files.length === 1 ? '' : 's'}` : 'Seleccionar imágenes'}</strong>
-              <span>{isDropActive ? 'Suelta para agregar' : 'PNG, JPG, WebP, AVIF, HEIC, TIFF, JXL, QOI, TGA, PNM…'}</span>
+              <strong>
+                {files.length
+                  ? `${files.length} archivo${files.length === 1 ? '' : 's'} seleccionado${files.length === 1 ? '' : 's'}`
+                  : 'Seleccionar imágenes'}
+              </strong>
+              <span>
+                {isDropActive ? 'Suelta para agregar' : 'PNG, JPG, WebP, AVIF, HEIC, TIFF, JXL, QOI, TGA, PNM…'}
+              </span>
               <span className="drop-hint">o arrastra y suelta aquí</span>
             </Button>
           </FileTrigger>
@@ -158,11 +183,7 @@ export default function App() {
             {files.map((file, index) => (
               <div className="file-row" key={`${file.name}-${file.size}-${index}`}>
                 <span className="file-name">{file.name}</span>
-                <Button
-                  className="file-remove"
-                  onPress={() => removeFile(index)}
-                  aria-label={`Quitar ${file.name}`}
-                >
+                <Button className="file-remove" onPress={() => removeFile(index)} aria-label={`Quitar ${file.name}`}>
                   ✕
                 </Button>
               </div>
@@ -174,14 +195,24 @@ export default function App() {
           <label className="field">
             <span>Formato de salida</span>
             <select value={format} onChange={(e) => setFormat(e.target.value as OutputFormat)}>
-              {OUTPUT_FORMATS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              {OUTPUT_FORMATS.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
             </select>
           </label>
 
           {selectedInfo.qualityControl && (
             <label className="field">
               <span>Calidad: {quality}%</span>
-              <input type="range" min="1" max="100" value={quality} onChange={(e) => setQuality(Number(e.target.value))} />
+              <input
+                type="range"
+                min="1"
+                max="100"
+                value={quality}
+                onChange={(e) => setQuality(Number(e.target.value))}
+              />
             </label>
           )}
 
@@ -209,31 +240,64 @@ export default function App() {
         <div className="section-heading capture-heading">
           <div>
             <h2>Captura de región</h2>
-            <p>Atajo predeterminado: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>.</kbd></p>
+            <p>
+              Atajo predeterminado: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>.</kbd>
+            </p>
           </div>
         </div>
 
         <label className="field">
           <span>Después de capturar</span>
-          <select value={captureSettings.destination} onChange={(event) => void updateDestination(event.target.value as CaptureSettings['destination'])}>
-            <option value="download">Descargar directamente</option><option value="editor">Abrir en editor</option>
+          <select
+            value={captureSettings.destination}
+            onChange={(event) => void updateDestination(event.target.value as CaptureSettings['destination'])}>
+            <option value="download">Descargar directamente</option>
+            <option value="editor">Abrir en editor</option>
           </select>
         </label>
         <label className="field">
           <span>Formato de captura</span>
-          <select value={captureSettings.format} onChange={(e) => void updateCaptureFormat(e.target.value as OutputFormat)}>
-            {OUTPUT_FORMATS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          <select
+            value={captureSettings.format}
+            onChange={(e) => void updateCaptureFormat(e.target.value as OutputFormat)}>
+            {OUTPUT_FORMATS.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
           </select>
         </label>
 
-        <Button className="secondary-button" isDisabled={!canCapture} onPress={startCapture}>Seleccionar área ahora</Button>
-        <Button className="secondary-button" isDisabled={!canCapture} onPress={async () => { await browser.runtime.sendMessage({ type: 'START_FULL_CAPTURE' }); window.close(); }}>Capturar página completa</Button>
+        <Button className="secondary-button" isDisabled={!canCapture} onPress={startCapture}>
+          Seleccionar área ahora
+        </Button>
+        <Button
+          className="secondary-button"
+          isDisabled={!canCapture}
+          onPress={async () => {
+            await browser.runtime.sendMessage({ type: 'START_FULL_CAPTURE' });
+            window.close();
+          }}>
+          Capturar página completa
+        </Button>
         <p className="note">La captura completa recorre la página. Mantén la pestaña activa; Esc cancela.</p>
-        {captureStatus && <p className="note" role="status">{captureStatus}</p>}
-        {!canCapture && <p className="note">No se puede capturar esta pestaña (páginas internas del navegador o de otras extensiones).</p>}
+        {captureStatus && (
+          <p className="note" role="status">
+            {captureStatus}
+          </p>
+        )}
+        {!canCapture && (
+          <p className="note">
+            No se puede capturar esta pestaña (páginas internas del navegador o de otras extensiones).
+          </p>
+        )}
       </section>
 
-      {status && <div className="status" role="status">{status}</div>}
+      {status && (
+        <div className="status" role="status">
+          {status}
+        </div>
+      )}
     </main>
   );
 }

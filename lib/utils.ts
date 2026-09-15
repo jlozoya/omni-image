@@ -8,7 +8,13 @@ export function basenameWithoutExtension(name: string): string {
 }
 
 export function safeFilenamePart(value: string): string {
-  return value.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'image';
+  return (
+    value
+      .replace(/[\\/:*?"<>|]+/g, '-')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || 'image'
+  );
 }
 
 export function timestampForFilename(date = new Date()): string {

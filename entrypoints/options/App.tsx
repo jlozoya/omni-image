@@ -48,7 +48,11 @@ export default function App() {
     try {
       await browser.tabs.create({ url: isFirefox ? 'about:addons' : 'chrome://extensions/shortcuts' });
     } catch {
-      setMessage(isFirefox ? 'Abre about:addons para administrar atajos.' : 'Abre chrome://extensions/shortcuts para administrar atajos.');
+      setMessage(
+        isFirefox
+          ? 'Abre about:addons para administrar atajos.'
+          : 'Abre chrome://extensions/shortcuts para administrar atajos.',
+      );
     }
   }
 
@@ -64,15 +68,27 @@ export default function App() {
       <section className="card">
         <h2>Captura de región</h2>
         <div className="form-grid">
-          <label className="field"><span>Después de capturar</span>
-            <select value={settings.destination} onChange={(event) => void persist({ ...settings, destination: event.target.value as CaptureSettings['destination'] })}>
-              <option value="download">Descargar directamente</option><option value="editor">Abrir en editor</option>
+          <label className="field">
+            <span>Después de capturar</span>
+            <select
+              value={settings.destination}
+              onChange={(event) =>
+                void persist({ ...settings, destination: event.target.value as CaptureSettings['destination'] })
+              }>
+              <option value="download">Descargar directamente</option>
+              <option value="editor">Abrir en editor</option>
             </select>
           </label>
           <label className="field">
             <span>Formato predeterminado</span>
-            <select value={settings.format} onChange={(e) => void persist({ ...settings, format: e.target.value as OutputFormat })}>
-              {OUTPUT_FORMATS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            <select
+              value={settings.format}
+              onChange={(e) => void persist({ ...settings, format: e.target.value as OutputFormat })}>
+              {OUTPUT_FORMATS.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -89,7 +105,10 @@ export default function App() {
             </label>
           )}
 
-          <TextField className="aria-field" value={settings.filenamePrefix} onChange={(value) => void persist({ ...settings, filenamePrefix: value })}>
+          <TextField
+            className="aria-field"
+            value={settings.filenamePrefix}
+            onChange={(value) => void persist({ ...settings, filenamePrefix: value })}>
             <Label>Prefijo de archivo</Label>
             <Input />
           </TextField>
@@ -97,7 +116,11 @@ export default function App() {
           {!selectedInfo.alpha && (
             <label className="field">
               <span>Fondo para transparencia</span>
-              <input type="color" value={settings.background} onChange={(e) => void persist({ ...settings, background: e.target.value })} />
+              <input
+                type="color"
+                value={settings.background}
+                onChange={(e) => void persist({ ...settings, background: e.target.value })}
+              />
             </label>
           )}
 
@@ -106,11 +129,13 @@ export default function App() {
               className="aria-field"
               value={settings.icoSizes.join(', ')}
               onChange={(value) => {
-                const sizes = value.split(',').map(Number).filter((n) => Number.isFinite(n) && n >= 1 && n <= 256);
+                const sizes = value
+                  .split(',')
+                  .map(Number)
+                  .filter((n) => Number.isFinite(n) && n >= 1 && n <= 256);
                 setSettings({ ...settings, icoSizes: sizes });
               }}
-              onBlur={() => void saveCaptureSettings(settings)}
-            >
+              onBlur={() => void saveCaptureSettings(settings)}>
               <Label>Tamaños ICO (px, separados por coma)</Label>
               <Input />
             </TextField>
@@ -120,16 +145,26 @@ export default function App() {
 
       <section className="card">
         <h2>Atajo de teclado</h2>
-        <p className="muted">Predeterminado: Ctrl + Shift + . El ejemplo Ctrl + | no es válido como comando nativo en Chrome/Firefox.</p>
+        <p className="muted">
+          Predeterminado: Ctrl + Shift + . El ejemplo Ctrl + | no es válido como comando nativo en Chrome/Firefox.
+        </p>
         <div className="shortcut-row">
           <TextField className="aria-field grow" value={shortcut} onChange={setShortcut}>
             <Label>Combinación</Label>
             <Input />
           </TextField>
-          <Button className="primary" onPress={saveShortcut}>{isFirefox ? 'Guardar atajo' : 'Ver instrucciones'}</Button>
+          <Button className="primary" onPress={saveShortcut}>
+            {isFirefox ? 'Guardar atajo' : 'Ver instrucciones'}
+          </Button>
         </div>
-        <Button className="secondary" onPress={openBrowserShortcutSettings}>Abrir administrador de atajos del navegador</Button>
-        {!isFirefox && <p className="muted">En Chrome, cambia el atajo en <code>chrome://extensions/shortcuts</code>.</p>}
+        <Button className="secondary" onPress={openBrowserShortcutSettings}>
+          Abrir administrador de atajos del navegador
+        </Button>
+        {!isFirefox && (
+          <p className="muted">
+            En Chrome, cambia el atajo en <code>chrome://extensions/shortcuts</code>.
+          </p>
+        )}
       </section>
 
       <section className="card">
@@ -142,10 +177,17 @@ export default function App() {
             </div>
           ))}
         </div>
-        <p className="muted">HEIC/HEIF está soportado como entrada. SVG de salida es un contenedor SVG con la imagen raster embebida, no una vectorización automática.</p>
+        <p className="muted">
+          HEIC/HEIF está soportado como entrada. SVG de salida es un contenedor SVG con la imagen raster embebida, no
+          una vectorización automática.
+        </p>
       </section>
 
-      {message && <div className="toast" role="status">{message}</div>}
+      {message && (
+        <div className="toast" role="status">
+          {message}
+        </div>
+      )}
     </main>
   );
 }

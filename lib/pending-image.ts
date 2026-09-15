@@ -57,9 +57,12 @@ export async function removePendingImages(ids: string[]): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       ids.forEach((id) => tx.objectStore(STORE_NAME).delete(id));
-      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
-  } finally { db.close(); }
+  } finally {
+    db.close();
+  }
 }
 
 /** Idempotent read: React StrictMode and reloads must not consume the transfer. */

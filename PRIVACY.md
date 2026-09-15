@@ -15,13 +15,13 @@ Drafts include original images, even when the exported result contains opaque re
 
 ## Permissions
 
-| Permission | Purpose |
-| --- | --- |
-| `activeTab` | Temporary access to the active webpage after you invoke the extension. |
-| `scripting` | Region selection, or scrolling and temporarily hiding fixed/sticky elements during a requested full-page capture. The page's scroll position and styles are restored afterward. |
-| `downloads` | Save converted images, captures and ZIP archives after your action. |
-| `storage` | Local preferences. |
-| `clipboardWrite` | Copy edited images or OCR text when you press Copy. |
+| Permission       | Purpose                                                                                                                                                                         |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `activeTab`      | Temporary access to the active webpage after you invoke the extension.                                                                                                          |
+| `scripting`      | Region selection, or scrolling and temporarily hiding fixed/sticky elements during a requested full-page capture. The page's scroll position and styles are restored afterward. |
+| `downloads`      | Save converted images, captures and ZIP archives after your action.                                                                                                             |
+| `storage`        | Local preferences.                                                                                                                                                              |
+| `clipboardWrite` | Copy edited images or OCR text when you press Copy.                                                                                                                             |
 
 There is no `<all_urls>` host permission or clipboard-read permission. Pasting images uses the browser's paste event after you press Ctrl/Cmd+V. Full-page capture operates on the current document, including what it renders, and requires that tab to remain active.
 
@@ -52,13 +52,13 @@ Los borradores incluyen la imagen original, aunque el resultado exportado tenga 
 
 ## Permisos
 
-| Permiso | Propósito |
-| --- | --- |
-| `activeTab` | Acceso temporal a la página activa después de invocar la extensión. |
-| `scripting` | Seleccionar una región o desplazar la página y ocultar temporalmente elementos fijos durante una captura completa solicitada. Después se restauran la posición y los estilos. |
-| `downloads` | Guardar imágenes, capturas y archivos ZIP tras tu acción. |
-| `storage` | Preferencias locales. |
-| `clipboardWrite` | Copiar la imagen editada o el texto OCR al pulsar Copiar. |
+| Permiso          | Propósito                                                                                                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `activeTab`      | Acceso temporal a la página activa después de invocar la extensión.                                                                                                           |
+| `scripting`      | Seleccionar una región o desplazar la página y ocultar temporalmente elementos fijos durante una captura completa solicitada. Después se restauran la posición y los estilos. |
+| `downloads`      | Guardar imágenes, capturas y archivos ZIP tras tu acción.                                                                                                                     |
+| `storage`        | Preferencias locales.                                                                                                                                                         |
+| `clipboardWrite` | Copiar la imagen editada o el texto OCR al pulsar Copiar.                                                                                                                     |
 
 No se solicita `<all_urls>` ni permiso para leer el portapapeles. Pegar imágenes utiliza el evento del navegador después de pulsar Ctrl/Cmd+V. La captura completa actúa sobre el documento actual y su contenido renderizado; requiere mantener activa esa pestaña.
 

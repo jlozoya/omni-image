@@ -25,13 +25,28 @@ async function deliverCapture(frame: ImageFrame) {
   if (settings.destination === 'editor') {
     const encoded = await encodeFrame(frame, { ...settings, format: 'png' });
     const id = crypto.randomUUID();
-    await writeDraft(id, [{ id, file: new File([encoded.bytes as BlobPart], `${filename}.png`, { type: 'image/png' }),
-      edit: { ...defaultEdit(), format: settings.format, quality: settings.quality, background: settings.background, icoSizes: settings.icoSizes } }]);
+    await writeDraft(id, [
+      {
+        id,
+        file: new File([encoded.bytes as BlobPart], `${filename}.png`, { type: 'image/png' }),
+        edit: {
+          ...defaultEdit(),
+          format: settings.format,
+          quality: settings.quality,
+          background: settings.background,
+          icoSizes: settings.icoSizes,
+        },
+      },
+    ]);
     await browser.tabs.create({ url: `${browser.runtime.getURL('/editor.html')}?session=${encodeURIComponent(id)}` });
     await reportCapture(true, 'Captura abierta en el editor.');
   } else {
     const encoded = await encodeFrame(frame, settings);
-    await browser.downloads.download({ url: bytesToDataUrl(encoded.bytes, encoded.mime), filename: `${filename}.${encoded.extension}`, saveAs: false });
+    await browser.downloads.download({
+      url: bytesToDataUrl(encoded.bytes, encoded.mime),
+      filename: `${filename}.${encoded.extension}`,
+      saveAs: false,
+    });
     await reportCapture(true, 'Descarga de captura iniciada.');
   }
 }
@@ -48,8 +63,11 @@ async function startFullCapture() {
     await reportCapture(true, 'Capturando página completa… Mantén la pestaña activa. Esc para cancelar.');
     const frame = await captureFullPage(tab.id, tab.windowId);
     await deliverCapture(frame);
-  } catch (error) { await reportCapture(false, error instanceof Error ? error.message : 'Falló la captura completa.'); }
-  finally { capturing = false; }
+  } catch (error) {
+    await reportCapture(false, error instanceof Error ? error.message : 'Falló la captura completa.');
+  } finally {
+    capturing = false;
+  }
 }
 
 export default defineBackground({
@@ -62,7 +80,10 @@ export default defineBackground({
 
     browser.runtime.onMessage.addListener((message: ExtensionMessage, sender) => {
       if (sender.id !== browser.runtime.id) return;
-      if (message?.type === 'START_FULL_CAPTURE') { void startFullCapture(); return; }
+      if (message?.type === 'START_FULL_CAPTURE') {
+        void startFullCapture();
+        return;
+      }
       if (message?.type === 'START_CAPTURE') {
         void startRegionSelection();
         return;
@@ -102,7 +123,14 @@ async function captureSelectedRegion(rect: RegionRect, tabId: number, windowId: 
   if (capturing) return;
   capturing = true;
   try {
-    if (![rect.x, rect.y, rect.width, rect.height, rect.viewportWidth, rect.viewportHeight].every(Number.isFinite) || rect.width <= 0 || rect.height <= 0 || rect.viewportWidth <= 0 || rect.viewportHeight <= 0) throw new Error('Región de captura inválida.');
+    if (
+      ![rect.x, rect.y, rect.width, rect.height, rect.viewportWidth, rect.viewportHeight].every(Number.isFinite) ||
+      rect.width <= 0 ||
+      rect.height <= 0 ||
+      rect.viewportWidth <= 0 ||
+      rect.viewportHeight <= 0
+    )
+      throw new Error('Región de captura inválida.');
     // Give the page one paint after removing the selection overlay.
     await new Promise((resolve) => setTimeout(resolve, 40));
     await assertActiveTab(tabId, windowId);
@@ -129,7 +157,9 @@ async function captureSelectedRegion(rect: RegionRect, tabId: number, windowId: 
     await deliverCapture(frame);
   } catch (error) {
     await reportCapture(false, error instanceof Error ? error.message : 'Falló la captura.');
-  } finally { capturing = false; }
+  } finally {
+    capturing = false;
+  }
 }
 
 function injectedRegionSelector(): void {

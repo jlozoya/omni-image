@@ -25,24 +25,24 @@ The extension converts local image files entirely in the browser and can capture
 
 ## Output formats
 
-| Format | Output | Alpha | Notes |
-| --- | --- | --- | --- |
-| PNG | Yes | Yes | Native Canvas encoder |
-| JPEG / JPG | Yes | No | Configurable quality |
-| WebP | Yes | Yes | Configurable quality |
-| AVIF | Yes | Yes | jSquash WebAssembly encoder |
-| JPEG XL / JXL | Yes | Yes | jSquash WebAssembly encoder |
-| GIF | Yes | Yes | Static single-frame GIF |
-| BMP | Yes | Yes | 32-bit BMP encoder |
-| ICO | Yes | Yes | Multi-resolution Windows icon; configurable sizes |
-| TIFF | Yes | Yes | UTIF encoder; uncompressed output |
-| QOI | Yes | Yes | jSquash WebAssembly encoder |
-| TGA | Yes | Yes | Uncompressed 32-bit TGA |
-| SVG | Yes | Yes | Raster image embedded in an SVG wrapper; not vector tracing |
-| PPM | Yes | No | Binary P6 |
-| PGM | Yes | No | Binary P5 grayscale |
-| PBM | Yes | No | Binary P4 monochrome |
-| PAM | Yes | Yes | P7 RGBA |
+| Format        | Output | Alpha | Notes                                                       |
+| ------------- | ------ | ----- | ----------------------------------------------------------- |
+| PNG           | Yes    | Yes   | Native Canvas encoder                                       |
+| JPEG / JPG    | Yes    | No    | Configurable quality                                        |
+| WebP          | Yes    | Yes   | Configurable quality                                        |
+| AVIF          | Yes    | Yes   | jSquash WebAssembly encoder                                 |
+| JPEG XL / JXL | Yes    | Yes   | jSquash WebAssembly encoder                                 |
+| GIF           | Yes    | Yes   | Static single-frame GIF                                     |
+| BMP           | Yes    | Yes   | 32-bit BMP encoder                                          |
+| ICO           | Yes    | Yes   | Multi-resolution Windows icon; configurable sizes           |
+| TIFF          | Yes    | Yes   | UTIF encoder; uncompressed output                           |
+| QOI           | Yes    | Yes   | jSquash WebAssembly encoder                                 |
+| TGA           | Yes    | Yes   | Uncompressed 32-bit TGA                                     |
+| SVG           | Yes    | Yes   | Raster image embedded in an SVG wrapper; not vector tracing |
+| PPM           | Yes    | No    | Binary P6                                                   |
+| PGM           | Yes    | No    | Binary P5 grayscale                                         |
+| PBM           | Yes    | No    | Binary P4 monochrome                                        |
+| PAM           | Yes    | Yes   | P7 RGBA                                                     |
 
 ## Accepted inputs
 

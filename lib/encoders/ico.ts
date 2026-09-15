@@ -3,8 +3,7 @@ import type { ImageFrame } from '../types';
 import { encodeNative } from './native';
 
 export async function encodeIco(frame: ImageFrame, sizes: number[]): Promise<Uint8Array> {
-  const normalized = [...new Set(sizes.map((s) => Math.max(1, Math.min(256, Math.round(s)))))]
-    .sort((a, b) => a - b);
+  const normalized = [...new Set(sizes.map((s) => Math.max(1, Math.min(256, Math.round(s)))))].sort((a, b) => a - b);
   if (normalized.length === 0) normalized.push(16, 32, 48, 256);
 
   const images: Uint8Array[] = [];
