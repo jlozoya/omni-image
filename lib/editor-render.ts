@@ -49,11 +49,17 @@ export function drawAnnotations(ctx: CanvasRenderingContext2D | OffscreenCanvasR
     } else if (a.kind === 'bubble') {
       drawBubble(ctx, left, top, w, h, size);
     } else if (a.kind === 'arrow') {
-      const angle = Math.atan2(ey - y, ex - x), head = size;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
+      const angle = Math.atan2(ey - y, ex - x);
+      // Shrink the head on short drags so it never outgrows its own shaft.
+      const head = Math.max(2, Math.min(size, Math.hypot(ex - x, ey - y) * .8));
+      const halfWidth = head * .48;
+      const baseX = ex - Math.cos(angle) * head, baseY = ey - Math.sin(angle) * head;
+      const perpX = -Math.sin(angle), perpY = Math.cos(angle);
+      // Stop the shaft at the head's base: a round cap taken to the tip pokes past the point.
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(baseX, baseY); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(ex, ey);
-      ctx.lineTo(ex - head * Math.cos(angle - .45), ey - head * Math.sin(angle - .45));
-      ctx.lineTo(ex - head * Math.cos(angle + .45), ey - head * Math.sin(angle + .45)); ctx.closePath(); ctx.fill();
+      ctx.lineTo(baseX + perpX * halfWidth, baseY + perpY * halfWidth);
+      ctx.lineTo(baseX - perpX * halfWidth, baseY - perpY * halfWidth); ctx.closePath(); ctx.fill();
     } else {
       ctx.font = `bold ${size}px system-ui, sans-serif`; ctx.textBaseline = 'top';
       if (a.kind === 'number') {
