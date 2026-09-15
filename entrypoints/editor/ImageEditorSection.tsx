@@ -1,15 +1,15 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent } from 'react';
 import { decodeImageFile } from '../../lib/decode';
-import { renderEdit, transformFrame, encodeEdit, drawAnnotations } from '../../lib/editor-render';
+import { renderEdit, transformFrame, encodeEdit, drawAnnotations } from '../../lib/editor/render';
 import { copyFrame } from '../../lib/clipboard';
 import { downloadEncoded } from '../../lib/download';
 import { OUTPUT_FORMATS, formatInfo } from '../../lib/formats';
 import { basenameWithoutExtension, clamp, safeFilenamePart } from '../../lib/utils';
-import { annotationBounds, cropFromAnchor, moveAnnotation, resizeAnnotation, resizeCropFromCorner } from '../../lib/editor-geometry';
+import { annotationBounds, cropFromAnchor, moveAnnotation, resizeAnnotation, resizeCropFromCorner } from '../../lib/editor/geometry';
 import { useEditHistory } from './useEditHistory';
 import { useTextDraft } from './useTextDraft';
-import type { Annotation, EditState, EditorEntry } from '../../lib/editor-model';
+import type { Annotation, EditState, EditorEntry } from '../../lib/editor/model';
 import type { ImageFrame, OutputFormat } from '../../lib/types';
 import type { CropRect } from '../../lib/crop';
 
@@ -291,7 +291,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
     if (!annotation) return; const p = point(event, true); setAnnotation({ ...annotation, endX: p.x, endY: p.y });
   }
   function annotateUp() {
-    if (annotation && (['text', 'number'].includes(annotation.kind) || Math.abs(annotation.endX - annotation.x) + Math.abs(annotation.endY - annotation.y) > .002)) {
+    if (annotation && (annotation.kind === 'number' || Math.abs(annotation.endX - annotation.x) + Math.abs(annotation.endY - annotation.y) > .002)) {
       change({ annotations: [...edit.annotations, annotation] });
       setSelectedAnnotation(edit.annotations.length);
       setJustCommitted(annotation);

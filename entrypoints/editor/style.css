@@ -11,11 +11,6 @@ header p { margin: 5px 0 0; color: #6c7078; }
 .editor-section + .editor-section { padding-top: 16px; border-top: 1px solid #e2e4e8; }
 .section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .section-title { margin: 0; font-size: 15px; font-weight: 650; color: #40444b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.section-remove { flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 1px solid #dddfe4; background: #fff; border-radius: 8px; width: 32px; height: 32px; font-size: 15px; font-weight: 700; line-height: 1; color: #5c6067; cursor: pointer; }
-.section-remove:hover { background: #fdeceb; border-color: #e6a8a3; color: #b3261e; }
-.editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
-.stage-card { display: grid; gap: 12px; justify-items: center; }
-.controls-card { display: grid; gap: 12px; align-content: start; }
 .form-grid { display: grid; gap: 14px; }
 .field { display: grid; gap: 6px; font-size: 13px; font-weight: 650; color: #40444b; }
 .field select, .field input { width: 100%; border: 1px solid #cbd0d6; border-radius: 8px; background: #fff; padding: 9px 10px; }
@@ -36,19 +31,7 @@ header p { margin: 5px 0 0; color: #6c7078; }
 .drop-button span { font-size: 12px; color: #777c84; }
 .drop-button .drop-hint { font-size: 11px; color: #9a9ea5; }
 .toast { position: fixed; right: 22px; bottom: 22px; border-radius: 9px; background: #1d1f23; color: #fff; padding: 10px 13px; font-size: 12px; }
-.link-button { border: 0; background: transparent; padding: 0; color: #1d1f23; font-weight: 700; font-size: 12px; text-decoration: underline; cursor: pointer; }
 
-.crop-stage {
-  position: relative;
-  margin: 0 auto;
-  overflow: hidden;
-  border-radius: 8px;
-  touch-action: none;
-  background-image: conic-gradient(#e5e6ea 25%, transparent 0 50%, #e5e6ea 0 75%, transparent 0);
-  background-size: 16px 16px;
-}
-.crop-stage canvas { position: absolute; top: 0; left: 0; display: block; }
-.crop-shade { position: absolute; background: rgba(0, 0, 0, .45); pointer-events: none; }
 .crop-box {
   position: absolute;
   border: 2px dashed #fff;
@@ -70,12 +53,7 @@ header p { margin: 5px 0 0; color: #6c7078; }
 .crop-handle-ne { top: -7px; right: -7px; cursor: nesw-resize; }
 .crop-handle-sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
 .crop-handle-se { bottom: -7px; right: -7px; cursor: nwse-resize; }
-.crop-info { display: flex; align-items: center; justify-content: space-between; width: 100%; font-size: 12px; color: #6c7078; }
 
-.placement-card { display: grid; gap: 12px; justify-items: start; }
-.section-heading-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
-.section-heading-row h3 { margin: 0; font-size: 14px; font-weight: 650; color: #40444b; }
-.frame-image { cursor: move; touch-action: none; }
 .placement-card .field { width: 100%; }
 
 button { border: 1px solid #cbd0d6; border-radius: 8px; padding: 9px 12px; background: #fff; cursor: pointer; }
@@ -86,7 +64,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .editor-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 16px; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
 .toolbar .primary, .batch-actions .primary { width: auto; }
-.workspace-tools, .workspace-panel { display: grid; gap: 14px; }
+.workspace-panel { display: grid; gap: 14px; }
 .workspace-panel { padding: 18px; }
 .workspace-header {
   display: flex;
@@ -139,8 +117,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   background: #fdeceb;
 }
 .draft-picker { max-width: 320px; }
-.file-button { display: grid; gap: 6px; font-weight: 650; font-size: 13px; }
-.file-button input { max-width: 280px; }
 .image-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
@@ -203,13 +179,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   gap: 14px;
   flex-wrap: wrap;
   padding-top: 2px;
-}
-.commandbar-label {
-  align-self: center;
-  color: #30343a;
-  font-size: 12px;
-  font-weight: 800;
-  padding: 0 4px;
 }
 .batch-actions { margin-left: auto; justify-content: flex-end; }
 .batch-actions button { min-height: 38px; }
@@ -288,7 +257,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .inline-status.toast { position: fixed; right: 22px; bottom: 22px; z-index: 20; max-width: min(520px, calc(100vw - 44px)); box-shadow: 0 12px 32px #18203330; }
 .ocr-panel { display: grid; gap: 12px; }
 textarea { width: 100%; resize: vertical; padding: 10px; border: 1px solid #cbd0d6; border-radius: 8px; font: inherit; }
-.wide { width: 100%; }
 h3 { margin: 0 0 8px; font-size: 16px; }
 .stage-card > .field { width: 100%; }
 

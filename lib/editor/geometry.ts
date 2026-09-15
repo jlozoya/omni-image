@@ -1,6 +1,6 @@
-import { clamp } from './utils';
-import type { Annotation } from './editor-model';
-import type { CropRect } from './crop';
+import { clamp } from '../utils';
+import type { Annotation } from './model';
+import type { CropRect } from '../crop';
 
 /** The area the crop frame may occupy. It can be larger than the image, adding canvas around it. */
 export interface Bounds { x: number; y: number; width: number; height: number }

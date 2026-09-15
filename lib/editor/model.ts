@@ -1,5 +1,5 @@
-import type { CropRect } from './crop';
-import type { EncodeOptions } from './types';
+import type { CropRect } from '../crop';
+import type { EncodeOptions } from '../types';
 
 export interface Annotation {
   kind: 'arrow' | 'line' | 'rect' | 'ellipse' | 'triangle' | 'diamond' | 'pentagon' | 'hexagon' | 'star' | 'bubble' | 'redact' | 'text' | 'number';

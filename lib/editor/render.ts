@@ -1,9 +1,9 @@
-import { frameToCanvas, makeCanvas, placeFrame, resizeFrame } from './canvas';
-import { cropFrame } from './crop';
-import { encodeFrame } from './codec';
-import { formatInfo } from './formats';
-import type { Annotation, EditState } from './editor-model';
-import type { ImageFrame } from './types';
+import { frameToCanvas, makeCanvas, placeFrame, resizeFrame } from '../canvas';
+import { cropFrame } from '../crop';
+import { encodeFrame } from '../codec';
+import { formatInfo } from '../formats';
+import type { Annotation, EditState } from './model';
+import type { ImageFrame } from '../types';
 
 export function validateDimensions(width: number, height: number) {
   if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1 ||

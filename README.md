@@ -89,7 +89,7 @@ Per image:
 
 The popup hands files off through IndexedDB (`lib/pending-image.ts`). Reads are idempotent, including React StrictMode's double mount. Transfers are deleted only after the editor commits its durable draft; abandoned transfers older than 24 hours are cleaned on the next transfer. The editor replaces transfer IDs in its URL with a session ID. Drafts autosave locally after a short debounce and survive reloads. **Recuperar otro borrador** opens a previous draft, and **Vaciar borrador** deletes the current one. Drafts retain original pixels even after adding redactions; exported images contain flattened annotations.
 
-`lib/editor-render.ts` is the shared pipeline for preview, exports, batches, clipboard and OCR. **Extraer texto del resultado** runs Tesseract.js with bundled Spanish/English models, including offline. Recognized text is editable and copyable; it is not persisted in drafts. WXT's public-assets hook bundles workers, WASM and language data without runtime CDN requests. See [Tesseract local installation](https://github.com/naptha/tesseract.js/blob/master/docs/local-installation.md).
+`lib/editor/render.ts` is the shared pipeline for preview, exports, batches, clipboard and OCR. **Extraer texto del resultado** runs Tesseract.js with bundled Spanish/English models, including offline. Recognized text is editable and copyable; it is not persisted in drafts. WXT's public-assets hook bundles workers, WASM and language data without runtime CDN requests. See [Tesseract local installation](https://github.com/naptha/tesseract.js/blob/master/docs/local-installation.md).
 
 ## Region capture
 
@@ -198,10 +198,11 @@ lib/
   canvas.ts           bitmap/canvas helpers, resize
   crop.ts             crop helper
   pending-image.ts    hands a File off from the popup to the editor tab
-  editor-store.ts     durable image/edit drafts and their summaries
-  editor-model.ts     shared edit state
-  editor-render.ts    transforms, annotations and target-size export
-  editor-geometry.ts  pure crop/annotation math shared by the editor gestures
+  editor/
+    model.ts          shared edit state
+    render.ts         transforms, annotations and export
+    geometry.ts       pure crop/annotation math behind the editor gestures
+    store.ts          durable image/edit drafts and their summaries
   full-page-capture.ts scrolling capture and page cleanup
   clipboard.ts       PNG clipboard output
   ocr.ts             offline text recognition

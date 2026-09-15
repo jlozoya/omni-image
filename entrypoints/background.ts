@@ -6,8 +6,8 @@ import type { ExtensionMessage } from '../lib/messages';
 import type { ImageFrame, RegionRect } from '../lib/types';
 import { safeFilenamePart, timestampForFilename } from '../lib/utils';
 import { captureFullPage, assertActiveTab } from '../lib/full-page-capture';
-import { writeDraft } from '../lib/editor-store';
-import { defaultEdit } from '../lib/editor-model';
+import { writeDraft } from '../lib/editor/store';
+import { defaultEdit } from '../lib/editor/model';
 
 let capturing = false;
 let selectedTab: number | undefined;

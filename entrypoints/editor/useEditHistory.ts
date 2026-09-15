@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { EditState } from '../../lib/editor-model';
+import type { EditState } from '../../lib/editor/model';
 
 const LIMIT = 40;
 

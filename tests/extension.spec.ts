@@ -41,7 +41,7 @@ const test = base.extend<{ context: BrowserContext; editor: Page; extensionId: s
 const sample = { name: 'colors.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><path fill="red" d="M0 0h100v100H0z"/><path fill="blue" d="M100 0h100v100H100z"/></svg>') };
 async function add(page: Page, files = [sample]) {
   await page.getByLabel('Agregar imágenes', { exact: true }).setInputFiles(files);
-  await expect(page.getByRole('button', { name: 'Aplicar y descargar', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Descargar imagen actual', exact: true })).toBeVisible();
   await expect(page.locator('canvas[aria-label="Resultado editado"]')).toBeVisible();
 }
 async function pixel(page: Page, x: number, y: number) {
@@ -62,7 +62,7 @@ test('placement at unchanged dimensions, undo, rotation and saved draft', async 
   await editor.getByLabel('Ajustar posición y escala', { exact: false }).check();
   await editor.getByLabel('Desplazamiento X (px)').fill('20');
   await expect.poll(() => pixel(editor, 5, 50)).toEqual([0, 0, 0, 0]);
-  await editor.getByRole('button', { name: 'Aplicar y descargar', exact: true }).click();
+  await editor.getByRole('button', { name: 'Descargar imagen actual', exact: true }).click();
   await expect(editor.getByText('Descarga iniciada:', { exact: false })).toBeVisible();
   const downloaded = await latestDownload(editor);
   expect(downloaded.bytes.slice(0, 8)).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -105,7 +105,7 @@ test('annotations are flattened and survive reload', async ({ editor }) => {
 test('clipboard, partial batch failure and ZIP', async ({ editor }) => {
   await add(editor);
   await editor.getByLabel('Formato', { exact: true }).selectOption('webp');
-  await editor.getByRole('button', { name: 'Copiar imagen (PNG)', exact: true }).click();
+  await editor.getByRole('button', { name: 'Copiar PNG actual', exact: true }).click();
   await expect(editor.locator('.editor-section .inline-status')).toHaveText('Imagen editada copiada como PNG.');
   await add(editor, [{ ...sample, name: 'second.svg' }]);
   await editor.getByLabel('Agregar imágenes', { exact: true }).setInputFiles({ name: 'broken.png', mimeType: 'image/png', buffer: Buffer.from('broken image') });
@@ -166,7 +166,7 @@ test('export downloads real output', async ({ editor }) => {
   });
   await add(editor, [{ name: 'noise.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') }]);
   await editor.getByLabel('Formato', { exact: true }).selectOption('jpeg');
-  await editor.getByRole('button', { name: 'Aplicar y descargar', exact: true }).click();
+  await editor.getByRole('button', { name: 'Descargar imagen actual', exact: true }).click();
   await expect(editor.getByText('Descarga iniciada:', { exact: false })).toBeVisible();
   const exported = await latestDownload(editor);
   expect(exported.bytes.slice(0, 3)).toEqual([255, 216, 255]);
@@ -178,7 +178,7 @@ test('every output format encodes through the shared pipeline', async ({ editor 
   await add(editor);
   for (const format of ['png', 'jpeg', 'webp', 'avif', 'jxl', 'gif', 'bmp', 'ico', 'tiff', 'qoi', 'tga', 'svg', 'ppm', 'pgm', 'pbm', 'pam']) {
     await editor.getByLabel('Formato', { exact: true }).selectOption(format);
-    await editor.getByRole('button', { name: 'Aplicar y descargar', exact: true }).click();
+    await editor.getByRole('button', { name: 'Descargar imagen actual', exact: true }).click();
     await expect(editor.locator('.editor-section .inline-status'), format).toContainText('Descarga iniciada:', { timeout: 30000 });
     expect((await latestDownload(editor)).bytes.length, format).toBeGreaterThan(0);
   }
@@ -196,7 +196,7 @@ test('popup batch runs in the editor and keeps its settings', async ({ context, 
   await expect(batchEditor.getByText('Guardando borrador…', { exact: false })).toHaveCount(0);
   await batchEditor.reload();
   await expect(batchEditor.getByLabel('Formato', { exact: true })).toHaveValue('jpeg');
-  await expect(batchEditor.getByRole('button', { name: 'Descargar todas (2)', exact: true })).toBeVisible();
+  await expect(batchEditor.getByRole('button', { name: 'Descargar todo (2)', exact: true })).toBeVisible();
 });
 
 test('region capture uses selected pixels; Escape restores a full-page capture', async ({ context, editor }) => {

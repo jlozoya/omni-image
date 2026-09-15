@@ -1,4 +1,4 @@
-import type { EditorEntry } from './editor-model';
+import type { EditorEntry } from './model';
 export interface DraftSummary { id: string; name: string; count: number; updatedAt: number }
 
 function openStore(): Promise<IDBDatabase> {

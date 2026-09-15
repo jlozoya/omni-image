@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { textAnnotationAt } from '../../lib/editor-geometry';
-import type { Annotation, EditState } from '../../lib/editor-model';
+import { textAnnotationAt } from '../../lib/editor/geometry';
+import type { Annotation, EditState } from '../../lib/editor/model';
 
-export interface TextDraft { x: number; y: number; seed: string; index: number | null; color: string; size: number; opacity: number }
+interface TextDraft { x: number; y: number; seed: string; index: number | null; color: string; size: number; opacity: number }
 interface Options {
   edit: EditState;
   change: (patch: Partial<EditState>) => void;

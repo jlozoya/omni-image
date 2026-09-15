@@ -6,8 +6,8 @@ import { DEFAULT_SETTINGS, getCaptureSettings, saveCaptureSettings } from '../..
 import type { CaptureSettings, OutputFormat } from '../../lib/types';
 import { savePendingImage } from '../../lib/pending-image';
 import { isCapturableUrl } from '../../lib/utils';
-import { defaultEdit } from '../../lib/editor-model';
-import { writeDraft } from '../../lib/editor-store';
+import { defaultEdit } from '../../lib/editor/model';
+import { writeDraft } from '../../lib/editor/store';
 
 export default function App() {
   const [files, setFiles] = useState<File[]>([]);

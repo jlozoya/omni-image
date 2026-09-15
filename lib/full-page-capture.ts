@@ -1,5 +1,5 @@
 import { makeCanvas } from './canvas';
-import { validateDimensions } from './editor-render';
+import { validateDimensions } from './editor/render';
 import type { ImageFrame } from './types';
 
 export async function assertActiveTab(tabId: number, windowId: number) {
