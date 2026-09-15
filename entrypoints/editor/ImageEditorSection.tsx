@@ -6,6 +6,9 @@ import { copyFrame } from '../../lib/clipboard';
 import { downloadEncoded } from '../../lib/download';
 import { OUTPUT_FORMATS, formatInfo } from '../../lib/formats';
 import { basenameWithoutExtension, clamp, safeFilenamePart } from '../../lib/utils';
+import { annotationBounds, cropFromAnchor, moveAnnotation, resizeAnnotation, resizeCropFromCorner } from '../../lib/editor-geometry';
+import { useEditHistory } from './useEditHistory';
+import { useTextDraft } from './useTextDraft';
 import type { Annotation, EditState, EditorEntry } from '../../lib/editor-model';
 import type { ImageFrame, OutputFormat } from '../../lib/types';
 import type { CropRect } from '../../lib/crop';
@@ -33,12 +36,9 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
-  const [past, setPast] = useState<EditState[]>([]);
-  const [future, setFuture] = useState<EditState[]>([]);
   const [ratio, setRatio] = useState(0);
   const [tool, setTool] = useState<Tool>('none');
   const [color, setColor] = useState('#e53935');
-  const [textDraft, setTextDraft] = useState<{ x: number; y: number; seed: string; index: number | null; color: string; size: number; opacity: number } | null>(null);
   const [size, setSize] = useState(.05);
   const [density, setDensity] = useState(1);
   const [stageWidth, setStageWidth] = useState(0);
@@ -50,11 +50,11 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   const [draftAnnotation, setDraftAnnotation] = useState<{ index: number; annotation: Annotation } | null>(null);
   const [selectedAnnotation, setSelectedAnnotation] = useState<number | null>(null);
   const [annotation, setAnnotation] = useState<Annotation | null>(null);
+  const { change, undo, redo, canUndo, canRedo } = useEditHistory(edit, onChange);
+  const { textDraft, textDraftRef, openTextDraft, commitTextDraft, discardTextDraft } = useTextDraft({ edit, change, setDraftAnnotation });
   const gesture = useRef<{ x: number; y: number; crop: CropRect; mode: string; annotation?: Annotation; index?: number } | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const annotationCanvas = useRef<HTMLCanvasElement>(null);
-  const textDraftRef = useRef<HTMLDivElement>(null);
-  const discardingDraft = useRef(false);
   const alive = useRef(true);
   const locked = busy || disabled;
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
@@ -109,17 +109,6 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
     if (pending.length) drawAnnotations(ctx, pending, output.width, output.height);
   }, [annotation, justCommitted, output]);
   useLayoutEffect(() => { setJustCommitted(null); }, [output]);
-  function change(patch: Partial<EditState>) {
-    setPast((items) => [...items.slice(-39), edit]); setFuture([]); onChange({ ...edit, ...patch });
-  }
-  function undo() {
-    const previous = past.at(-1); if (!previous) return;
-    setFuture((items) => [edit, ...items]); setPast((items) => items.slice(0, -1)); onChange(previous);
-  }
-  function redo() {
-    const next = future[0]; if (!next) return;
-    setPast((items) => [...items, edit]); setFuture((items) => items.slice(1)); onChange(next);
-  }
   const fullCrop = transformed ? { x: 0, y: 0, width: transformed.width, height: transformed.height } : { x: 0, y: 0, width: 1, height: 1 };
   const crop = draftCrop ?? edit.crop ?? fullCrop;
   const info = formatInfo(edit.format);
@@ -173,27 +162,6 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
     setAnnotation((current) => current && current.kind !== 'redact' ? { ...current, color: nextColor } : current);
     updateSelectedAnnotation({ color: nextColor }, (item) => item.kind !== 'redact');
   }
-  function discardTextDraft() {
-    // Escape unmounts the editor, and the blur that follows must not be read as a commit.
-    discardingDraft.current = true;
-    setDraftAnnotation(null); setTextDraft(null);
-  }
-  function commitTextDraft() {
-    if (discardingDraft.current) { discardingDraft.current = false; return; }
-    if (!textDraft) return;
-    const value = (textDraftRef.current?.innerText ?? '').replace(/\s+$/, '');
-    const editing = textDraft.index;
-    setTextDraft(null); setDraftAnnotation(null);
-    if (editing !== null) {
-      // Rewriting an existing note: empty text deletes it.
-      change({ annotations: value.trim()
-        ? edit.annotations.map((item, index) => index === editing ? { ...item, text: value } : item)
-        : edit.annotations.filter((_, index) => index !== editing) });
-      return;
-    }
-    if (!value.trim()) return;
-    change({ annotations: [...edit.annotations, { kind: 'text', x: textDraft.x, y: textDraft.y, endX: textDraft.x, endY: textDraft.y, color: textDraft.color, size: textDraft.size, opacity: textDraft.opacity, text: value }] });
-  }
   function updateSelectedAnnotation(patch: Partial<Annotation>, predicate: (item: Annotation) => boolean = () => true) {
     if (selectedAnnotation === null) return;
     const current = edit.annotations[selectedAnnotation];
@@ -225,43 +193,10 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
       setDraftCrop({ ...g.crop, x: clamp(g.crop.x + dx, 0, fullCrop.width - g.crop.width), y: clamp(g.crop.y + dy, 0, fullCrop.height - g.crop.height) }); return;
     }
     if (g.mode.startsWith('resize-')) {
-      setDraftCrop(resizeCropFromCorner(g.crop, g.mode.replace('resize-', ''), p, dx, dy));
+      setDraftCrop(resizeCropFromCorner(g.crop, g.mode.replace('resize-', ''), p, dx, dy, fullCrop, ratio));
       return;
     }
-    const anchorX = g.x, anchorY = g.y;
-    let width = Math.max(1, Math.abs(p.x - anchorX)), height = Math.max(1, Math.abs(p.y - anchorY));
-    if (ratio) {
-      height = width / ratio;
-      const availableY = p.y < anchorY ? anchorY : fullCrop.height - anchorY;
-      if (height > availableY) { height = availableY; width = height * ratio; }
-    }
-    setDraftCrop({ x: p.x < anchorX ? anchorX - width : anchorX, y: p.y < anchorY ? anchorY - height : anchorY, width, height });
-  }
-  function resizeCropFromCorner(base: CropRect, corner: string, p: { x: number; y: number }, dx: number, dy: number): CropRect {
-    if (ratio) {
-      const fixedX = corner.includes('w') ? base.x + base.width : base.x;
-      const fixedY = corner.includes('n') ? base.y + base.height : base.y;
-      const maxWidth = corner.includes('w') ? fixedX : fullCrop.width - fixedX;
-      const maxHeight = corner.includes('n') ? fixedY : fullCrop.height - fixedY;
-      let width = Math.min(Math.max(1, Math.abs(p.x - fixedX)), maxWidth);
-      let height = Math.min(Math.max(1, Math.abs(p.y - fixedY)), maxHeight);
-      if (width / ratio <= height) height = width / ratio;
-      else width = height * ratio;
-      if (height > maxHeight) { height = maxHeight; width = height * ratio; }
-      if (width > maxWidth) { width = maxWidth; height = width / ratio; }
-      return {
-        x: corner.includes('w') ? fixedX - width : fixedX,
-        y: corner.includes('n') ? fixedY - height : fixedY,
-        width: Math.max(1, width),
-        height: Math.max(1, height),
-      };
-    }
-    let left = base.x, right = base.x + base.width, top = base.y, bottom = base.y + base.height;
-    if (corner.includes('w')) left = clamp(left + dx, 0, right - 1);
-    if (corner.includes('e')) right = clamp(right + dx, left + 1, fullCrop.width);
-    if (corner.includes('n')) top = clamp(top + dy, 0, bottom - 1);
-    if (corner.includes('s')) bottom = clamp(bottom + dy, top + 1, fullCrop.height);
-    return { x: left, y: top, width: right - left, height: bottom - top };
+    setDraftCrop(cropFromAnchor({ x: g.x, y: g.y }, p, fullCrop, ratio));
   }
   function cropUp(event: PointerEvent<HTMLDivElement>) {
     if (gesture.current && draftCrop) change({ crop: { x: Math.round(draftCrop.x), y: Math.round(draftCrop.y), width: Math.max(1, Math.round(draftCrop.width)), height: Math.max(1, Math.round(draftCrop.height)) }, width: 0, height: 0 });
@@ -277,16 +212,9 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
     if (tool === 'text') {
       event.preventDefault();
       const at = point(event, true);
-      const hit = textAnnotationAt(at);
       // A click closes the note being written and opens the one under the pointer, or a new one.
-      commitTextDraft();
-      discardingDraft.current = false;
       setSelectedAnnotation(null);
-      if (hit === null) { setTextDraft({ ...at, seed: '', index: null, color, size, opacity: density }); return; }
-      const item = edit.annotations[hit]!;
-      // Hide the original while its replacement is typed in the same spot.
-      setDraftAnnotation({ index: hit, annotation: { ...item, text: '' } });
-      setTextDraft({ x: item.x, y: item.y, seed: item.text, index: hit, color: item.color, size: item.size, opacity: item.opacity ?? 1 });
+      openTextDraft(at, { color, size, opacity: density });
       return;
     }
     event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId);
@@ -295,15 +223,6 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
     const a: Annotation = { kind: tool, ...p, endX: p.x, endY: p.y, color: tool === 'redact' ? '#000000' : color, size, opacity: tool === 'redact' ? 1 : density,
       text: tool === 'number' ? String(edit.annotations.filter((item) => item.kind === 'number').length + 1) : '' };
     setAnnotation(a);
-  }
-  function textAnnotationAt(at: { x: number; y: number }) {
-    for (let index = edit.annotations.length - 1; index >= 0; index--) {
-      const item = edit.annotations[index];
-      if (item?.kind !== 'text') continue;
-      const bounds = annotationBounds(item);
-      if (at.x >= bounds.left && at.x <= bounds.left + bounds.width && at.y >= bounds.top && at.y <= bounds.top + bounds.height) return index;
-    }
-    return null;
   }
   function annotateMove(event: PointerEvent<HTMLDivElement>) {
     if (!annotation) return; const p = point(event, true); setAnnotation({ ...annotation, endX: p.x, endY: p.y });
@@ -315,40 +234,6 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
       setJustCommitted(annotation);
     }
     setAnnotation(null);
-  }
-  function annotationBounds(item: Annotation) {
-    if (item.kind === 'text') {
-      const lines = item.text.split('\n');
-      const width = Math.min(Math.max(.035, Math.max(...lines.map((line) => line.length), 1) * item.size * .5), 1);
-      const height = Math.min(Math.max(.035, lines.length * item.size * 1.2), 1);
-      return { left: clamp(item.x, 0, 1 - width), top: clamp(item.y, 0, 1 - height), width, height };
-    }
-    if (item.kind === 'number') {
-      const radius = Math.max(.02, item.size * .8);
-      const size = Math.min(radius * 2, 1);
-      return { left: clamp(item.x - radius, 0, 1 - size), top: clamp(item.y - radius, 0, 1 - size), width: size, height: size };
-    }
-    const left = Math.min(item.x, item.endX), right = Math.max(item.x, item.endX);
-    const top = Math.min(item.y, item.endY), bottom = Math.max(item.y, item.endY);
-    return { left, top, width: Math.max(.025, right - left), height: Math.max(.025, bottom - top) };
-  }
-  function moveAnnotation(item: Annotation, dx: number, dy: number) {
-    const bounds = annotationBounds(item);
-    const safeDx = clamp(dx, -bounds.left, 1 - bounds.left - bounds.width);
-    const safeDy = clamp(dy, -bounds.top, 1 - bounds.top - bounds.height);
-    return { ...item, x: item.x + safeDx, y: item.y + safeDy, endX: item.endX + safeDx, endY: item.endY + safeDy };
-  }
-  function resizeAnnotation(item: Annotation, mode: string, p: { x: number; y: number }, start: { x: number; y: number }) {
-    if (item.kind === 'text' || item.kind === 'number') return moveAnnotation(item, p.x - start.x, p.y - start.y);
-    const dx = p.x - start.x, dy = p.y - start.y;
-    const corner = mode.replace('annotation-resize-', '');
-    let left = Math.min(item.x, item.endX), right = Math.max(item.x, item.endX);
-    let top = Math.min(item.y, item.endY), bottom = Math.max(item.y, item.endY);
-    if (corner.includes('w')) left = clamp(left + dx, 0, right - .002);
-    if (corner.includes('e')) right = clamp(right + dx, left + .002, 1);
-    if (corner.includes('n')) top = clamp(top + dy, 0, bottom - .002);
-    if (corner.includes('s')) bottom = clamp(bottom + dy, top + .002, 1);
-    return { ...item, x: clamp(left, 0, 1), y: clamp(top, 0, 1), endX: clamp(right, 0, 1), endY: clamp(bottom, 0, 1) };
   }
   function editedAnnotationAt(event: PointerEvent<HTMLElement>) {
     const g = gesture.current;
@@ -472,8 +357,8 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
             <button disabled={!edit.annotations.length} onClick={() => { setSelectedAnnotation(null); change({ annotations: [] }); }}>Quitar anotaciones</button>
           </div>
           <div className="tool-group compact-actions">
-            <button className="icon-action" aria-label="Deshacer" title="Deshacer" disabled={!past.length} onClick={undo}><span aria-hidden="true">↶</span></button>
-            <button className="icon-action" aria-label="Rehacer" title="Rehacer" disabled={!future.length} onClick={redo}><span aria-hidden="true">↷</span></button>
+            <button className="icon-action" aria-label="Deshacer" title="Deshacer" disabled={!canUndo} onClick={undo}><span aria-hidden="true">↶</span></button>
+            <button className="icon-action" aria-label="Rehacer" title="Rehacer" disabled={!canRedo} onClick={redo}><span aria-hidden="true">↷</span></button>
           </div>
         </aside>
         <div className="canvas-panel">

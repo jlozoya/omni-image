@@ -189,6 +189,8 @@ entrypoints/
   background.ts       capture command, injection, screenshot and download
   popup/              converter + quick capture controls
   editor/             image workspace, annotations, OCR and batch export
+    useEditHistory.ts undo/redo over the edit state
+    useTextDraft.ts   the note being typed on the canvas
   options/            capture and keyboard settings
 lib/
   codec.ts            output dispatch
@@ -199,6 +201,7 @@ lib/
   editor-store.ts     durable image/edit drafts and their summaries
   editor-model.ts     shared edit state
   editor-render.ts    transforms, annotations and target-size export
+  editor-geometry.ts  pure crop/annotation math shared by the editor gestures
   full-page-capture.ts scrolling capture and page cleanup
   clipboard.ts       PNG clipboard output
   ocr.ts             offline text recognition
