@@ -313,7 +313,7 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
               {modeTools.map((item) => <button key={item.value} type="button" className={tool === item.value ? 'tool-button selected' : 'tool-button'} title={`${item.label}: ${item.hint}`} aria-label={item.label} aria-pressed={tool === item.value} onClick={() => selectTool(item.value)}><span aria-hidden="true" className="tool-icon">{item.icon}</span></button>)}
             </div>
           </div>
-          {(tool === 'none' || tool === 'crop') && <div className="tool-group active-tool-panel">
+          {tool === 'none' && <div className="tool-group active-tool-panel">
             <h3>Posición y escala</h3>
             <label className="checkbox-field"><input type="checkbox" checked={edit.placement} onChange={(event) => change({ placement: event.target.checked })} />Ajustar posición y escala</label>
             {edit.placement && <>
@@ -323,7 +323,6 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
               </div>
               <label className="field">Escala: {Math.round(edit.zoom * 100)}%<input type="range" min={10} max={500} value={edit.zoom * 100} onChange={(event) => change({ zoom: Number(event.target.value) / 100 })} /></label>
               <button onClick={() => change({ offsetX: 0, offsetY: 0, zoom: 1 })}>Centrar</button>
-              {tool === 'crop' && <p className="muted">El lienzo muestra el original con el marco de recorte; la escala se ve en «Resultado editado».</p>}
             </>}
           </div>}
           {tool === 'crop' && <div className="tool-group active-tool-panel">
