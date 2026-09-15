@@ -151,7 +151,7 @@ bun run build:firefox
 bun run zip:firefox
 ```
 
-`bun run build` / `bun run zip` are aliases for the `:chrome` variants.
+`bun run build` / `bun run zip` do both browsers in sequence; use the `:chrome` / `:firefox` variants to target one.
 
 WXT writes browser-specific artifacts under `dist/`.
 
