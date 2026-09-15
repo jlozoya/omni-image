@@ -2,7 +2,8 @@ import { clamp } from './utils';
 import type { Annotation } from './editor-model';
 import type { CropRect } from './crop';
 
-export interface Bounds { width: number; height: number }
+/** The area the crop frame may occupy. It can be larger than the image, adding canvas around it. */
+export interface Bounds { x: number; y: number; width: number; height: number }
 export interface Point { x: number; y: number }
 export interface Box { left: number; top: number; width: number; height: number }
 
@@ -11,7 +12,7 @@ export function cropFromAnchor(anchor: Point, p: Point, bounds: Bounds, ratio: n
   let width = Math.max(1, Math.abs(p.x - anchor.x)), height = Math.max(1, Math.abs(p.y - anchor.y));
   if (ratio) {
     height = width / ratio;
-    const availableY = p.y < anchor.y ? anchor.y : bounds.height - anchor.y;
+    const availableY = p.y < anchor.y ? anchor.y - bounds.y : bounds.y + bounds.height - anchor.y;
     if (height > availableY) { height = availableY; width = height * ratio; }
   }
   return { x: p.x < anchor.x ? anchor.x - width : anchor.x, y: p.y < anchor.y ? anchor.y - height : anchor.y, width, height };
@@ -22,8 +23,8 @@ export function resizeCropFromCorner(base: CropRect, corner: string, p: Point, d
   if (ratio) {
     const fixedX = corner.includes('w') ? base.x + base.width : base.x;
     const fixedY = corner.includes('n') ? base.y + base.height : base.y;
-    const maxWidth = corner.includes('w') ? fixedX : bounds.width - fixedX;
-    const maxHeight = corner.includes('n') ? fixedY : bounds.height - fixedY;
+    const maxWidth = corner.includes('w') ? fixedX - bounds.x : bounds.x + bounds.width - fixedX;
+    const maxHeight = corner.includes('n') ? fixedY - bounds.y : bounds.y + bounds.height - fixedY;
     let width = Math.min(Math.max(1, Math.abs(p.x - fixedX)), maxWidth);
     let height = Math.min(Math.max(1, Math.abs(p.y - fixedY)), maxHeight);
     if (width / ratio <= height) height = width / ratio;
@@ -38,10 +39,10 @@ export function resizeCropFromCorner(base: CropRect, corner: string, p: Point, d
     };
   }
   let left = base.x, right = base.x + base.width, top = base.y, bottom = base.y + base.height;
-  if (corner.includes('w')) left = clamp(left + dx, 0, right - 1);
-  if (corner.includes('e')) right = clamp(right + dx, left + 1, bounds.width);
-  if (corner.includes('n')) top = clamp(top + dy, 0, bottom - 1);
-  if (corner.includes('s')) bottom = clamp(bottom + dy, top + 1, bounds.height);
+  if (corner.includes('w')) left = clamp(left + dx, bounds.x, right - 1);
+  if (corner.includes('e')) right = clamp(right + dx, left + 1, bounds.x + bounds.width);
+  if (corner.includes('n')) top = clamp(top + dy, bounds.y, bottom - 1);
+  if (corner.includes('s')) bottom = clamp(bottom + dy, top + 1, bounds.y + bounds.height);
   return { x: left, y: top, width: right - left, height: bottom - top };
 }
 

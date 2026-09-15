@@ -117,7 +117,7 @@ function drawBubble(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingCont
 }
 export async function renderEdit(source: ImageFrame, edit: EditState): Promise<ImageFrame> {
   const transformed = transformFrame(source, edit);
-  const cropped = edit.crop ? cropFrame(transformed, edit.crop) : transformed;
+  const cropped = edit.crop ? cropFrame(transformed, edit.crop, formatInfo(edit.format).alpha ? undefined : edit.background) : transformed;
   const width = Math.round(edit.width || (edit.height ? edit.height * cropped.width / cropped.height : cropped.width));
   const height = Math.round(edit.height || (edit.width ? edit.width * cropped.height / cropped.width : cropped.height));
   validateDimensions(width, height);

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { PointerEvent } from 'react';
+import type { CSSProperties, PointerEvent } from 'react';
 import { decodeImageFile } from '../../lib/decode';
 import { renderEdit, transformFrame, encodeEdit, drawAnnotations } from '../../lib/editor-render';
 import { copyFrame } from '../../lib/clipboard';
@@ -19,7 +19,7 @@ interface Props {
   disabled: boolean;
 }
 type Tool = 'none' | 'crop' | Annotation['kind'];
-function FrameCanvas({ frame, label }: { frame: ImageFrame | null; label: string }) {
+function FrameCanvas({ frame, label, style }: { frame: ImageFrame | null; label: string; style?: CSSProperties }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     if (frame && ref.current) {
@@ -27,7 +27,7 @@ function FrameCanvas({ frame, label }: { frame: ImageFrame | null; label: string
       ref.current.getContext('2d')!.putImageData(new ImageData(frame.data, frame.width, frame.height), 0, 0);
     }
   }, [frame]);
-  return <canvas ref={ref} aria-label={label} className="image-canvas" />;
+  return <canvas ref={ref} aria-label={label} className="image-canvas" style={style} />;
 }
 export default function ImageEditorSection({ entry, onChange, disabled }: Props) {
   const { file, edit } = entry;
@@ -111,13 +111,23 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   useLayoutEffect(() => { setJustCommitted(null); }, [output]);
   const fullCrop = transformed ? { x: 0, y: 0, width: transformed.width, height: transformed.height } : { x: 0, y: 0, width: 1, height: 1 };
   const crop = draftCrop ?? edit.crop ?? fullCrop;
+  const cropWorkspace = useMemo(() => {
+    // The frame may reach outside the image, so crop mode works on a larger area.
+    // Built from the committed crop, not the draft, so the view holds still mid-drag.
+    const rect = edit.crop ?? fullCrop;
+    const marginX = fullCrop.width * .15, marginY = fullCrop.height * .15;
+    const x = Math.min(0, rect.x) - marginX, y = Math.min(0, rect.y) - marginY;
+    const right = Math.max(fullCrop.width, rect.x + rect.width) + marginX;
+    const bottom = Math.max(fullCrop.height, rect.y + rect.height) + marginY;
+    return { x, y, width: right - x, height: bottom - y };
+  }, [fullCrop.width, fullCrop.height, edit.crop]);
   const info = formatInfo(edit.format);
   const exportBase = edit.crop ?? fullCrop;
   const exportWidth = Math.round(edit.width || (edit.height ? edit.height * exportBase.width / exportBase.height : exportBase.width));
   const exportHeight = Math.round(edit.height || (edit.width ? edit.width * exportBase.height / exportBase.width : exportBase.height));
   const canvasFrame = tool === 'crop' ? transformed : output;
-  const canvasWidth = tool === 'crop' ? fullCrop.width : output?.width;
-  const canvasHeight = tool === 'crop' ? fullCrop.height : output?.height;
+  const canvasWidth = tool === 'crop' ? cropWorkspace.width : output?.width;
+  const canvasHeight = tool === 'crop' ? cropWorkspace.height : output?.height;
   // drawAnnotations sizes text off the shorter output edge; scale that to the displayed stage.
   const draftFontPx = output && stageWidth && textDraft ? Math.max(4, textDraft.size * Math.min(output.width, output.height)) * (stageWidth / output.width) : 16;
   const selectedAnnotationItem = selectedAnnotation === null ? null : draftAnnotation?.index === selectedAnnotation ? draftAnnotation.annotation : edit.annotations[selectedAnnotation] ?? null;
@@ -176,6 +186,13 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
       y: clamp((clientY - bounds.top) / bounds.height, 0, 1) * (normalized ? 1 : fullCrop.height),
     };
   }
+  function cropPoint(event: PointerEvent<HTMLElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return {
+      x: cropWorkspace.x + clamp((event.clientX - bounds.left) / bounds.width, 0, 1) * cropWorkspace.width,
+      y: cropWorkspace.y + clamp((event.clientY - bounds.top) / bounds.height, 0, 1) * cropWorkspace.height,
+    };
+  }
   function point(event: PointerEvent<HTMLElement>, normalized = false) {
     const bounds = event.currentTarget.getBoundingClientRect();
     return { x: clamp((event.clientX - bounds.left) / bounds.width, 0, 1) * (normalized ? 1 : fullCrop.width),
@@ -184,19 +201,19 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
   function cropDown(event: PointerEvent<HTMLDivElement>) {
     if (locked || event.button !== 0) return;
     event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId);
-    gesture.current = { ...point(event), crop, mode: (event.target as HTMLElement).dataset.mode ?? 'select' };
+    gesture.current = { ...cropPoint(event), crop, mode: (event.target as HTMLElement).dataset.mode ?? 'select' };
   }
   function cropMove(event: PointerEvent<HTMLDivElement>) {
     const g = gesture.current; if (!g) return;
-    const p = point(event), dx = p.x - g.x, dy = p.y - g.y;
+    const p = cropPoint(event), dx = p.x - g.x, dy = p.y - g.y;
     if (g.mode === 'move') {
-      setDraftCrop({ ...g.crop, x: clamp(g.crop.x + dx, 0, fullCrop.width - g.crop.width), y: clamp(g.crop.y + dy, 0, fullCrop.height - g.crop.height) }); return;
+      setDraftCrop({ ...g.crop, x: clamp(g.crop.x + dx, cropWorkspace.x, cropWorkspace.x + cropWorkspace.width - g.crop.width), y: clamp(g.crop.y + dy, cropWorkspace.y, cropWorkspace.y + cropWorkspace.height - g.crop.height) }); return;
     }
     if (g.mode.startsWith('resize-')) {
-      setDraftCrop(resizeCropFromCorner(g.crop, g.mode.replace('resize-', ''), p, dx, dy, fullCrop, ratio));
+      setDraftCrop(resizeCropFromCorner(g.crop, g.mode.replace('resize-', ''), p, dx, dy, cropWorkspace, ratio));
       return;
     }
-    setDraftCrop(cropFromAnchor({ x: g.x, y: g.y }, p, fullCrop, ratio));
+    setDraftCrop(cropFromAnchor({ x: g.x, y: g.y }, p, cropWorkspace, ratio));
   }
   function cropUp(event: PointerEvent<HTMLDivElement>) {
     if (gesture.current && draftCrop) change({ crop: { x: Math.round(draftCrop.x), y: Math.round(draftCrop.y), width: Math.max(1, Math.round(draftCrop.width)), height: Math.max(1, Math.round(draftCrop.height)) }, width: 0, height: 0 });
@@ -328,13 +345,14 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
           {tool === 'crop' && <div className="tool-group active-tool-panel">
             <h3>Recorte</h3>
             <label className="field">Proporción<select value={ratio} onChange={(event) => chooseRatio(Number(event.target.value))}><option value={0}>Libre</option><option value={1}>1:1</option><option value={4 / 3}>4:3</option><option value={16 / 9}>16:9</option><option value={9 / 16}>9:16</option></select></label>
-            <div className="numeric-grid">{(['x', 'y', 'width', 'height'] as const).map((key) => <label className="field" key={key}>{{ x: 'X', y: 'Y', width: 'Ancho', height: 'Alto' }[key]}<input type="number" min={key === 'x' || key === 'y' ? 0 : 1} value={Math.round(crop[key])} onChange={(event) => {
+            <div className="numeric-grid">{(['x', 'y', 'width', 'height'] as const).map((key) => <label className="field" key={key}>{{ x: 'X', y: 'Y', width: 'Ancho', height: 'Alto' }[key]}<input type="number" min={key === 'x' || key === 'y' ? undefined : 1} value={Math.round(crop[key])} onChange={(event) => {
               const next = { ...crop, [key]: Number(event.target.value) };
-              next.x = clamp(next.x, 0, fullCrop.width - 1); next.y = clamp(next.y, 0, fullCrop.height - 1);
-              next.width = clamp(next.width, 1, fullCrop.width - next.x); next.height = clamp(next.height, 1, fullCrop.height - next.y);
-              if (ratio && (key === 'width' || key === 'height')) { next.width = Math.min(key === 'height' ? next.height * ratio : next.width, (fullCrop.height - next.y) * ratio, fullCrop.width - next.x); next.height = next.width / ratio; }
+              next.x = clamp(next.x, -32767, 32767); next.y = clamp(next.y, -32767, 32767);
+              next.width = clamp(next.width, 1, 32767); next.height = clamp(next.height, 1, 32767);
+              if (ratio && (key === 'width' || key === 'height')) { next.width = key === 'height' ? next.height * ratio : next.width; next.height = next.width / ratio; }
               change({ crop: next, width: 0, height: 0 });
             }} /></label>)}</div>
+            <p className="muted">El marco puede salirse de la imagen: lo que quede fuera se rellena con el color de fondo.</p>
             <button onClick={() => change({ crop: null, width: 0, height: 0 })}>Restablecer recorte</button>
           </div>}
           <div className="tool-group">
@@ -379,8 +397,9 @@ export default function ImageEditorSection({ entry, onChange, disabled }: Props)
               else if (!placementUp(event)) annotateUp();
             }}
             onPointerCancel={() => { setAnnotation(null); gesture.current = null; setDraftCrop(null); setDraftPlacement(null); }}>
-            <FrameCanvas frame={canvasFrame} label={tool === 'crop' ? 'Imagen para recortar' : 'Resultado editado'} />
-            {tool === 'crop' && <div className="crop-box" data-mode="move" style={{ left: `${crop.x / fullCrop.width * 100}%`, top: `${crop.y / fullCrop.height * 100}%`, width: `${crop.width / fullCrop.width * 100}%`, height: `${crop.height / fullCrop.height * 100}%` }}>
+            <FrameCanvas frame={canvasFrame} label={tool === 'crop' ? 'Imagen para recortar' : 'Resultado editado'}
+              style={tool === 'crop' ? { left: `${-cropWorkspace.x / cropWorkspace.width * 100}%`, top: `${-cropWorkspace.y / cropWorkspace.height * 100}%`, width: `${fullCrop.width / cropWorkspace.width * 100}%`, height: `${fullCrop.height / cropWorkspace.height * 100}%` } : undefined} />
+            {tool === 'crop' && <div className="crop-box" data-mode="move" style={{ left: `${(crop.x - cropWorkspace.x) / cropWorkspace.width * 100}%`, top: `${(crop.y - cropWorkspace.y) / cropWorkspace.height * 100}%`, width: `${crop.width / cropWorkspace.width * 100}%`, height: `${crop.height / cropWorkspace.height * 100}%` }}>
               {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => <span key={corner} className={`crop-handle crop-handle-${corner}`} data-mode={`resize-${corner}`} />)}
             </div>}
             {tool !== 'crop' && <canvas className="annotation-overlay" ref={annotationCanvas} />}

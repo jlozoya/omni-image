@@ -81,7 +81,7 @@ The editor can open with no images; the empty state is a drop target that also o
 
 Per image:
 
-1. Drag the crop box or its bottom-right handle, or enter numeric coordinates. Fixed ratios include 1:1, 4:3, 16:9 and 9:16. Rotate in 90-degree steps or flip either axis.
+1. Drag the crop box or its corner handles, or enter numeric coordinates. The frame may reach outside the image, which adds canvas around it: the surplus is filled with the background colour, or left transparent when the output format keeps alpha. Crop mode shows the image inside a workspace with room to drag the frame past its edges. Fixed ratios include 1:1, 4:3, 16:9 and 9:16. Rotate in 90-degree steps or flip either axis.
 2. Set output dimensions. A zero dimension is automatic; with **Mantener proporción**, entering one dimension calculates the other. Disable the lock and enable manual placement to position/scale the source inside an output canvas, even when its dimensions match the original.
 3. Add arrows, rectangles, opaque black redaction blocks, text or numbered markers on the result. Text is typed in place: click where the note belongs and an editor opens there, matching the exported font size and colour. Clicking an existing note reopens it for editing, and clearing its text deletes it. Esc discards the edit; clicking elsewhere or Ctrl/Cmd+Enter commits it. Annotation coordinates are relative to the output canvas. **Deshacer/Rehacer** remembers up to 40 local edits while that image remains selected; Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z work outside text fields.
 4. Choose format/quality/background. Copy uses PNG at the edited dimensions.
